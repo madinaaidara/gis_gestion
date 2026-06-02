@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "364107572304",
+    "project_id": "guissgestion",
+    "storage_bucket": "guissgestion.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:364107572304:android:56be505962490f82a4dd55",
+        "android_client_info": {
+          "package_name": "com.example.guissgestion_boutique"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCjiwbzsTYM1uFLQtQVNaB0bEqZoxkOxso"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
