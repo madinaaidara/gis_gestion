@@ -1,6 +1,7 @@
 class CreditModel {
   final String? id;
   final String? shopId;
+  final String? venteId;
   final String clientNom;
   final String? telephoneClient;
   final double montantTotal;
@@ -14,6 +15,7 @@ class CreditModel {
   const CreditModel({
     this.id,
     this.shopId,
+    this.venteId,
     required this.clientNom,
     this.telephoneClient,
     this.montantTotal = 0.0,
@@ -29,6 +31,7 @@ class CreditModel {
     return CreditModel(
       id: json['id']?.toString(),
       shopId: json['shop_id']?.toString(),
+      venteId: json['vente_id']?.toString(),
       clientNom: json['client_nom']?.toString() ?? '',
       telephoneClient: json['telephone_client']?.toString(),
       montantTotal: _toDouble(json['montant_total']),
@@ -53,6 +56,7 @@ class CreditModel {
     };
     if (id != null) data['id'] = id;
     if (shopId != null) data['shop_id'] = shopId;
+    if (venteId != null) data['vente_id'] = venteId;
     if (dateCredit != null) data['date_credit'] = dateCredit;
     if (createdAt != null) data['created_at'] = createdAt;
     return data;

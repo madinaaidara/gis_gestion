@@ -1,5 +1,5 @@
 name: guissgestion_boutique
-description: Application de gestion commerciale pour boutiques - Guiss Gestion
+description: Application de gestion commerciale pour boutiques - Gis Gestion
 
 publish_to: 'none'
 
@@ -35,14 +35,40 @@ dependencies:
 
   flutter_spinkit: ^5.2.1
 
+  fl_chart: ^0.69.0
+
+  table_calendar: ^3.0.9
+  
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: assets/images/logo_guiss_gestion1.png
+  adaptive_icon_background: "#050505"
+  adaptive_icon_foreground: assets/images/logo_guiss_gestion1.png
+  web:
+    generate: true
+    image_path: assets/images/logo_guiss_gestion1.png
+    background_color: "#050505"
+    theme_color: "#7C5CFF"
+  windows:
+    generate: true
+    image_path: assets/images/logo_guiss_gestion1.png
 
 flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/
+    - assets/images/logo_guiss_gestion1.png
+    - assets/images/onboarding_dashboard.png
+    - assets/images/onboarding_produits.png
+    - assets/images/onboarding_ventes.png
+    - assets/images/onboarding_stats.png

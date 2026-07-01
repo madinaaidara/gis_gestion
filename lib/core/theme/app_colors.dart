@@ -70,15 +70,17 @@ class AppColors {
   static const Color primaryBlue = Color(0xFF3B82F6);
 
   // ============================================
-  // THÈME SIDEBAR (SOMBRE)
+  // THÈME SIDEBAR (Spotify-like dark premium)
   // ============================================
 
-  static const Color sidebarBg = Color(0xFF1E1E2E);
-  static const Color sidebarHover = Color(0xFF2A2A3E);
-  static const Color sidebarActive = Color(0xFF2D2D4A);
-  static const Color sidebarText = Color(0xFF9CA3AF);
+  static const Color sidebarBg = Color(0xFF000000);
+  static const Color sidebarHover = Color(0xFF1A1A1A);
+  static const Color sidebarActive = Color(0xFF282828);
+  static const Color sidebarText = Color(0xFFB3B3B3);
   static const Color sidebarTextSelected = Color(0xFFFFFFFF);
-  static const Color sidebarBorder = Color(0xFF363652);
+  static const Color sidebarBorder = Color(0xFF282828);
+  static const Color brandAccent = Color(0xFF7C5CFF);
+  static const Color brandAccentLight = Color(0xFF9B82FF);
 
   // ============================================
   // THÈME CONTENU (CLAIR)

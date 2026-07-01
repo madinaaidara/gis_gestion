@@ -1,393 +1,197 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/app_colors.dart' as th;
 
-/// ============================================
-/// RESPONSIVE NAVIGATION - GIS Gestion
-/// ============================================
-/// Navigation professionnelle type enterprise:
-/// - Desktop (>1200px): Sidebar fixe avec logo + profil
-/// - Tablet (600-1200px): Drawer coulissant depuis la gauche
-/// - Mobile (<600px): Drawer coulissant depuis la gauche
-/// ============================================
+import 'global_search_overlay.dart';
+import 'spotify_top_bar.dart';
+import 'gis_assistant_host.dart';
 
+/// Navigation responsive style Spotify / SaaS premium :
+/// - Desktop : sidebar + top bar recherche
+/// - Mobile : bottom nav compact + drawer menu
 class ResponsiveNavigation extends StatefulWidget {
   final Widget child;
   final int currentIndex;
   final Function(int) onNavigate;
+  final void Function(int index, {String? productQuery, String? clientQuery})? onSearchNavigate;
+  final VoidCallback? onOpenSearch;
   final List<NavDestination> destinations;
+  final int profileNavIndex;
 
   const ResponsiveNavigation({
     super.key,
     required this.child,
     required this.currentIndex,
     required this.onNavigate,
+    this.onSearchNavigate,
+    this.onOpenSearch,
     required this.destinations,
+    this.profileNavIndex = 6,
   });
 
   @override
   State<ResponsiveNavigation> createState() => _ResponsiveNavigationState();
 }
 
-class _ResponsiveNavigationState extends State<ResponsiveNavigation>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animController;
-  late Animation<double> _scaleAnimation;
+class _ResponsiveNavigationState extends State<ResponsiveNavigation> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _sidebarExpanded = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
-    );
-    _scaleAnimation = Tween<double>(begin: 0.92, end: 1.0).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeOutBack),
-    );
-    _animController.forward();
-  }
-
-  @override
-  void dispose() {
-    _animController.dispose();
-    super.dispose();
-  }
 
   void _onItemTapped(int index) {
     if (index == widget.currentIndex) return;
     HapticFeedback.selectionClick();
-    _animController.reset();
-    _animController.forward();
     widget.onNavigate(index);
-    // Fermer le drawer après navigation
     if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
       Navigator.of(context).pop();
     }
   }
 
+  void _handleSearchNavigate(int index, {String? productQuery, String? clientQuery}) {
+    if (widget.onSearchNavigate != null) {
+      widget.onSearchNavigate!(index, productQuery: productQuery, clientQuery: clientQuery);
+    } else {
+      widget.onNavigate(index);
+    }
+  }
+
+  void _openSearch() {
+    if (widget.onOpenSearch != null) {
+      widget.onOpenSearch!();
+    } else {
+      GlobalSearchOverlay.show(context, onNavigate: _handleSearchNavigate);
+    }
+  }
+
+  static const _mobileTabs = [
+    (0, Icons.home_outlined, Icons.home_rounded, 'Accueil'),
+    (1, Icons.point_of_sale_outlined, Icons.point_of_sale_rounded, 'Caisse'),
+    (2, Icons.inventory_2_outlined, Icons.inventory_2_rounded, 'Produits'),
+    (5, Icons.bar_chart_outlined, Icons.bar_chart_rounded, 'Stats'),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isDesktop = constraints.maxWidth >= 1200;
-
-        if (isDesktop) {
-          return _buildDesktopLayout();
-        } else {
-          return _buildMobileTabletLayout();
+        if (constraints.maxWidth >= 1200) {
+          return Scaffold(
+            backgroundColor: th.AppColors.sidebarBg,
+            body: Row(
+              children: [
+                _DesktopSidebar(
+                  destinations: widget.destinations,
+                  currentIndex: widget.currentIndex,
+                  profileNavIndex: widget.profileNavIndex,
+                  onNavigate: _onItemTapped,
+                  isExpanded: _sidebarExpanded,
+                  onToggleExpand: () {
+                    HapticFeedback.selectionClick();
+                    setState(() => _sidebarExpanded = !_sidebarExpanded);
+                  },
+                ),
+                Expanded(
+                  child: Column(
+                    children: [
+                      SpotifyTopBar(
+                        currentIndex: widget.currentIndex,
+                        destinations: widget.destinations,
+                        onNavigate: _handleSearchNavigate,
+                        onOpenSearch: _openSearch,
+                      ),
+                      Expanded(child: widget.child),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
         }
+
+        final isBottomTab = _mobileTabs.any((t) => t.$1 == widget.currentIndex);
+        final bottomIndex = isBottomTab
+            ? _mobileTabs.indexWhere((t) => t.$1 == widget.currentIndex)
+            : 4;
+
+        return Scaffold(
+          key: _scaffoldKey,
+          backgroundColor: const Color(0xFF050505),
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF000000),
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+            leading: IconButton(
+              icon: const Icon(Icons.menu_rounded, color: Colors.white),
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            ),
+            title: Text(
+              _mobilePageTitle(),
+              style: GoogleFonts.plusJakartaSans(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+              ),
+            ),
+            actions: [
+              const GisAssistantToolbarButton(compact: true),
+              IconButton(
+                icon: const Icon(Icons.search_rounded, color: Colors.white),
+                tooltip: 'Rechercher (Ctrl+K)',
+                onPressed: _openSearch,
+              ),
+            ],
+          ),
+          drawer: _MobileDrawer(
+            destinations: widget.destinations,
+            currentIndex: widget.currentIndex,
+            profileNavIndex: widget.profileNavIndex,
+            onNavigate: _onItemTapped,
+          ),
+          body: widget.child,
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: bottomIndex.clamp(0, 4),
+            backgroundColor: const Color(0xFF000000),
+            indicatorColor: th.AppColors.sidebarActive,
+            height: 64,
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            onDestinationSelected: (i) {
+              if (i == 4) {
+                _scaffoldKey.currentState?.openDrawer();
+                return;
+              }
+              _onItemTapped(_mobileTabs[i].$1);
+            },
+            destinations: [
+              for (final t in _mobileTabs)
+                NavigationDestination(
+                  icon: Icon(t.$2, color: th.AppColors.sidebarText),
+                  selectedIcon: Icon(t.$3, color: Colors.white),
+                  label: t.$4,
+                ),
+              const NavigationDestination(
+                icon: Icon(Icons.menu_rounded, color: th.AppColors.sidebarText),
+                selectedIcon: Icon(Icons.menu_rounded, color: Colors.white),
+                label: 'Menu',
+              ),
+            ],
+          ),
+        );
       },
     );
   }
 
-  /// ============================================
-  /// DESKTOP LAYOUT - Sidebar fixe large
-  /// ============================================
-    Widget _buildDesktopLayout() {
-    return Scaffold(
-      body: Row(
-        children: [
-          // Sidebar permanente - Desktop avec sécurité anti-bave pendant l'animation
-          ClipRect(
-            child: _DesktopSidebar(
-              destinations: widget.destinations,
-              currentIndex: widget.currentIndex,
-              onNavigate: _onItemTapped,
-              isExpanded: _sidebarExpanded,
-              onToggleExpand: () {
-                setState(() {
-                  _sidebarExpanded = !_sidebarExpanded;
-                });
-              },
-            ),
-          ),
-          // Contenu principal
-          Expanded(
-            child: FadeTransition(
-              opacity: _scaleAnimation,
-              child: widget.child,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// ============================================
-  /// MOBILE/TABLET LAYOUT - Drawer coulissant
-  /// ============================================
-  Widget _buildMobileTabletLayout() {
-    return Scaffold(
-      key: _scaffoldKey,
-      appBar: AppBar(
-        backgroundColor: th.AppColors.sidebarBg,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.white),
-          onPressed: () {
-            _scaffoldKey.currentState?.openDrawer();
-          },
-        ),
-        title: const Text(
-          'GIS Gestion',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      drawer: _buildDrawer(),
-      body: FadeTransition(
-        opacity: _scaleAnimation,
-        child: widget.child,
-      ),
-    );
-  }
-
-  /// ============================================
-  /// DRAWER - Menu coulissant pour mobile/tablette
-  /// ============================================
-  Widget _buildDrawer() {
-    return Drawer(
-      backgroundColor: th.AppColors.sidebarBg,
-      child: SafeArea(
-        child: Column(
-          children: [
-            // Header du drawer avec logo
-            Container(
-              // Remplacement de .all(20) par des marges adaptées pour éviter le débordement horizontal
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    th.AppColors.primaryIndigo.withOpacity(0.3),
-                    th.AppColors.sidebarBg,
-                  ],
-                ),
-              ),
-              child: Row(
-                children: [
-                  // Logo
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(
-                      'assets/images/logo_guiss_gestion1.png',
-                      width: 50,
-                      height: 50,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: th.AppColors.primaryGradient,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.store_rounded,
-                            color: Colors.white,
-                            size: 28,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12), // Légèrement réduit de 14 à 12 pour gagner de l'espace
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min, // Indique à la colonne de prendre le minimum de place verticale
-                      children: [
-                        const Text(
-                          'GIS Gestion',
-                          maxLines: 1, // Empêche de dupliquer les lignes à l'infini
-                          overflow: TextOverflow.ellipsis, // Coupe proprement par des "..." si ça dépasse
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18, // Réduit de 20 à 18 pour la sécurité sur mobile
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          'Gestion de boutique',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis, // Sécurité anti-débordement
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Liste des destinations
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: widget.destinations.length,
-                itemBuilder: (context, index) {
-                  return _buildDrawerItem(index);
-                },
-              ),
-            ),
-
-            // Footer avec fermer
-            _buildDrawerFooter(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDrawerItem(int index) {
-    final dest = widget.destinations[index];
-    final isSelected = widget.currentIndex == index;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: () => _onItemTapped(index),
-          borderRadius: BorderRadius.circular(12),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? dest.color.withOpacity(0.2)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              border: isSelected
-                  ? Border.all(
-                      color: dest.color.withOpacity(0.5),
-                      width: 1,
-                    )
-                  : null,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    gradient: isSelected
-                        ? LinearGradient(
-                            colors: [dest.color, dest.color.withOpacity(0.8)])
-                        : null,
-                    color: isSelected ? null : th.AppColors.sidebarHover,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    isSelected ? dest.selectedIcon : dest.icon,
-                    color: isSelected ? Colors.white : th.AppColors.sidebarText,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    dest.label,
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : th.AppColors.sidebarText,
-                      fontSize: 15,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    ),
-                  ),
-                ),
-                if (isSelected)
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: dest.color,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDrawerFooter() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: Colors.white.withOpacity(0.1),
-          ),
-        ),
-      ),
-      child: Column(
-        children: [
-          // Bouton fermer
-          Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            child: InkWell(
-              onTap: () => Navigator.of(context).pop(),
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: th.AppColors.sidebarHover,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.close,
-                      color: Colors.white.withOpacity(0.7),
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Fermer',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  String _mobilePageTitle() {
+    if (widget.currentIndex < widget.destinations.length) {
+      return widget.destinations[widget.currentIndex].label;
+    }
+    if (widget.currentIndex == widget.profileNavIndex) return 'Profil';
+    return 'Gis Gestion';
   }
 }
 
-/// ============================================
-/// NAV DESTINATION MODEL
-/// ============================================
 class NavDestination {
   final IconData icon;
   final IconData selectedIcon;
@@ -402,12 +206,12 @@ class NavDestination {
   });
 }
 
-/// ============================================
-/// DESKTOP SIDEBAR - Large avec logo + profil
-/// ============================================
+// ─── Desktop sidebar ─────────────────────────────────────────────────────────
+
 class _DesktopSidebar extends StatefulWidget {
   final List<NavDestination> destinations;
   final int currentIndex;
+  final int profileNavIndex;
   final Function(int) onNavigate;
   final bool isExpanded;
   final VoidCallback onToggleExpand;
@@ -415,578 +219,347 @@ class _DesktopSidebar extends StatefulWidget {
   const _DesktopSidebar({
     required this.destinations,
     required this.currentIndex,
+    required this.profileNavIndex,
     required this.onNavigate,
     required this.isExpanded,
     required this.onToggleExpand,
   });
+
+  static const expandedWidth = 240.0;
+  static const collapsedWidth = 72.0;
 
   @override
   State<_DesktopSidebar> createState() => _DesktopSidebarState();
 }
 
 class _DesktopSidebarState extends State<_DesktopSidebar> with SingleTickerProviderStateMixin {
-  late AnimationController _avatarAnimController;
-  late Animation<double> _avatarScaleAnimation;
+  late AnimationController _widthCtrl;
+  late Animation<double> _widthAnim;
 
-  // Données utilisateur depuis Supabase
   String _userName = 'Utilisateur';
   String _userEmail = '';
-  String? _userAvatarUrl;
-  bool _isLoadingProfile = true;
+  bool _loadingProfile = true;
 
   @override
   void initState() {
     super.initState();
-    _avatarAnimController = AnimationController(
-      duration: const Duration(milliseconds: 500),
+    _widthCtrl = AnimationController(
       vsync: this,
+      duration: const Duration(milliseconds: 180),
+      value: widget.isExpanded ? 1.0 : 0.0,
     );
-    _avatarScaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _avatarAnimController, curve: Curves.elasticOut),
-    );
-    _avatarAnimController.forward();
+    _widthAnim = CurvedAnimation(parent: _widthCtrl, curve: Curves.easeInOutCubic);
     _loadUserProfile();
   }
 
   @override
+  void didUpdateWidget(covariant _DesktopSidebar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isExpanded != oldWidget.isExpanded) {
+      widget.isExpanded ? _widthCtrl.forward() : _widthCtrl.reverse();
+    }
+  }
+
+  @override
   void dispose() {
-    _avatarAnimController.dispose();
+    _widthCtrl.dispose();
     super.dispose();
   }
 
-  /// ============================================
-  /// CHARGEMENT DES DONNÉES UTILISATEUR DEPUIS SUPABASE
-  /// ============================================
   Future<void> _loadUserProfile() async {
     try {
-      final currentUser = Supabase.instance.client.auth.currentUser;
-      if (currentUser != null) {
-        final email = currentUser.email ?? '';
-        String nomUtilisateur = 'Utilisateur';
-        String? avatarUrl; // Reste à null pour l'instant
-
-        try {
-          final profileResponse = await Supabase.instance.client
-              .from('profiles')
-              .select('full_name') // Retrait de avatar_url pour stopper le bug SQL
-              .eq('id', currentUser.id)
-              .maybeSingle();
-
-          if (profileResponse != null) {
-            nomUtilisateur = profileResponse['full_name'] ?? currentUser.userMetadata?['full_name'] ?? email.split('@').first;
-          } else {
-            nomUtilisateur = currentUser.userMetadata?['full_name'] ?? email.split('@').first;
-          }
-        } catch (e) {
-          debugPrint('Erreur profil: $e');
-          nomUtilisateur = currentUser.userMetadata?['full_name'] ?? email.split('@').first;
-        }
-
-        setState(() {
-          _userName = nomUtilisateur;
-          _userEmail = email;
-          _userAvatarUrl = avatarUrl; // Vaut null, le widget affichera l'icône par défaut
-          _isLoadingProfile = false;
-        });
-      } else {
-        setState(() => _isLoadingProfile = false);
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        if (mounted) setState(() => _loadingProfile = false);
+        return;
       }
-    } catch (e) {
-      debugPrint('Erreur chargement profil: $e');
-      setState(() => _isLoadingProfile = false);
+      var name = user.userMetadata?['full_name']?.toString() ?? user.email?.split('@').first ?? 'Utilisateur';
+      try {
+        final row = await Supabase.instance.client
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .maybeSingle();
+        if (row?['full_name'] != null) name = row!['full_name'].toString();
+      } catch (_) {}
+      if (mounted) {
+        setState(() {
+          _userName = name;
+          _userEmail = user.email ?? '';
+          _loadingProfile = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingProfile = false);
     }
   }
 
-  /// ============================================
-  /// RÉCUPÉRER LES INITIALES
-  /// ============================================
-  String _getInitiales() {
-    if (_userName.isEmpty) return 'U';
-    final parties = _userName.trim().split(' ');
-    if (parties.length >= 2) {
-      return '${parties[0][0]}${parties[1][0]}'.toUpperCase();
-    }
-    return _userName[0].toUpperCase();
+  String _initials() {
+    final parts = _userName.trim().split(' ');
+    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    return _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U';
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      width: widget.isExpanded ? 280 : 80,
-      decoration: BoxDecoration(
-        color: th.AppColors.sidebarBg,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 20,
+    return AnimatedBuilder(
+      animation: _widthAnim,
+      builder: (context, _) {
+        final t = _widthAnim.value;
+        final width = _DesktopSidebar.collapsedWidth +
+            (_DesktopSidebar.expandedWidth - _DesktopSidebar.collapsedWidth) * t;
 
-            
-            offset: const Offset(5, 0),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Header avec logo
-          _buildSidebarHeader(),
-          const SizedBox(height: 8),
-          // Navigation items
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              itemCount: widget.destinations.length,
-              itemBuilder: (context, index) {
-                return _buildNavItem(index);
-              },
-            ),
-          ),
-          // Footer avec profil + toggle
-          _buildSidebarFooter(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSidebarHeader() {
-    return Container(
-      height: 80,
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: AnimatedCrossFade(
-        crossFadeState: widget.isExpanded 
-            ? CrossFadeState.showFirst 
-            : CrossFadeState.showSecond,
-        duration: const Duration(milliseconds: 200),
-        
-        // --- PREMIER ENFANT : Sidebar OUVERTE ---
-        firstChild: Container(
-          width: 280,
-          height: 48, // Aligné sur la hauteur du logo
-          child: ClipRect( // Sécurité pour masquer les débordements de texte
-            child: Stack(
-              alignment: Alignment.centerLeft,
-              children: [
-                // Le Logo placé à gauche avec le padding d'origine (20)
-                Positioned(
-                  left: 20,
-                  child: _buildHeaderLogo(),
-                ),
-                // Les Textes placés à une coordonnée fixe après le logo
-                Positioned(
-                  left: 78, // 20 (padding) + 44 (logo) + 14 (SizedBox)
-                  right: 10,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'GIS Gestion',
-                        maxLines: 1,
-                        softWrap: false,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: -0.5,
-                        ),
-                        overflow: TextOverflow.clip,
-                      ),
-                      Text(
-                        'Gestion de boutique',
-                        maxLines: 1,
-                        softWrap: false,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.5),
-                          fontSize: 11,
-                        ),
-                        overflow: TextOverflow.clip,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        // --- SECOND ENFANT : Sidebar RÉDUITE ---
-        secondChild: Container(
-          width: 80,
-          height: 48,
-          alignment: Alignment.center,
-          child: _buildHeaderLogo(),
-        ),
-      ),
-    );
-  }
-
-  // Petit helper pour éviter de dupliquer le code de l'image du logo
-  Widget _buildHeaderLogo() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Image.asset(
-        'assets/images/logo_guiss_gestion1.png',
-        width: 44,
-        height: 44,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: th.AppColors.primaryGradient,
+        return ClipRect(
+          child: SizedBox(
+            width: width,
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                color: th.AppColors.sidebarBg,
+                border: Border(right: BorderSide(color: Color(0xFF1A1A1A), width: 1)),
               ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.store_rounded,
-              color: Colors.white,
-              size: 24,
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildNavItem(int index) {
-    final dest = widget.destinations[index];
-    final isSelected = widget.currentIndex == index;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: () => widget.onNavigate(index),
-          borderRadius: BorderRadius.circular(12),
-          hoverColor: th.AppColors.sidebarHover,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? th.AppColors.primaryIndigo.withOpacity(0.2)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              border: isSelected
-                  ? Border.all(
-                      color: th.AppColors.primaryIndigo.withOpacity(0.5),
-                      width: 1,
-                    )
-                  : null,
-            ),
-            // SÉCURITÉ ABSOLUE : ClipRect + ListTile éliminent définitivement le besoin de Row et ses plantages
-            child: ClipRect(
-              child: ListTile(
-                mouseCursor: SystemMouseCursors.click,
-                selected: isSelected,
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: widget.isExpanded ? 16 : 8, // Réduction propre du padding pour centrer l'icône
-                ),
-                
-                // 1. L'icône (S'affiche dans les deux états)
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    gradient: isSelected
-                        ? LinearGradient(colors: [dest.color, dest.color.withOpacity(0.8)])
-                        : null,
-                    color: isSelected ? null : th.AppColors.sidebarHover,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    isSelected ? dest.selectedIcon : dest.icon,
-                    color: isSelected ? Colors.white : th.AppColors.sidebarText,
-                    size: 20,
-                  ),
-                ),
-
-                // 2. Le Texte (Masqué par le ClipRect quand la barre se ferme)
-                title: widget.isExpanded
-                    ? Text(
-                        dest.label,
-                        maxLines: 1,
-                        softWrap: false,
-                        overflow: TextOverflow.fade,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : th.AppColors.sidebarText,
-                          fontSize: 14,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                        ),
-                      )
-                    : const SizedBox.shrink(), // Rien du tout si fermé
-
-                // 3. Le point indicateur à droite
-                trailing: widget.isExpanded && isSelected
-                    ? Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: dest.color,
-                          shape: BoxShape.circle,
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSidebarFooter() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          const Divider(color: Colors.white10, height: 1),
-          const SizedBox(height: 6),
-          
-          // ============================================
-          // PROFIL UTILISATEUR - FONDU ANIMÉ SÉCURISÉ
-          // ============================================
-          AnimatedCrossFade(
-            crossFadeState: widget.isExpanded 
-                ? CrossFadeState.showFirst 
-                : CrossFadeState.showSecond,
-            duration: const Duration(milliseconds: 200),
-            
-            // --- ÉTAT 1 : Profil complet (Sidebar ouverte) ---
-            firstChild: Container(
-              width: 264, // Largeur nette disponible
-              height: 60, // On fixe une hauteur stable pour le conteneur du profil
-              decoration: BoxDecoration(
-                color: th.AppColors.sidebarHover.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    _showProfileMenu(context);
-                  },
-                  borderRadius: BorderRadius.circular(10),
-                  // REMPLACEMENT DE LA ROW PAR UN STACK POURÉLIMINER COMPLÈTEMENT L'OVERFLOW
-                  child: ClipRect(
-                    child: Stack(
-                      alignment: Alignment.centerLeft,
-                      children: [
-                        // Avatar calé à gauche (avec un padding de 10)
-                        Positioned(
-                          left: 10,
-                          child: ScaleTransition(
-                            scale: _avatarScaleAnimation,
-                            child: _buildAvatar(),
-                          ),
-                        ),
-                        // Zone de texte calée de manière fixe après l'avatar
-                        Positioned(
-                          left: 54, // 10 (marge) + 34 (largeur avatar estimée) + 10 (espace)
-                          right: 32, // Laisse de l'espace pour l'icône de droite
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                _userName,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                overflow: TextOverflow.clip,
-                                maxLines: 1,
-                                softWrap: false,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _userEmail.isNotEmpty ? _userEmail : 'Chargement...',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.5),
-                                  fontSize: 10,
-                                ),
-                                overflow: TextOverflow.clip,
-                                maxLines: 1,
-                                softWrap: false,
-                              ),
-                            ],
-                          ),
-                        ),
-                        // L'icône des trois points calée à l'extrémité droite
-                        Positioned(
-                          right: 10,
-                          child: Icon(
-                            Icons.more_vert,
-                            color: Colors.white.withOpacity(0.5),
-                            size: 18,
-                          ),
-                        ),
-                      ],
+              child: Column(
+                children: [
+                  _buildHeader(t),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      itemCount: widget.destinations.length,
+                      itemBuilder: (_, i) => _navItem(i, t),
                     ),
                   ),
-                ),
-              ),
-            ),
-            
-            // --- ÉTAT 2 : Profil réduit (Sidebar fermée) ---
-            secondChild: Container(
-              width: 64,
-              height: 60, // Même hauteur fixe pour un fondu parfaitement harmonieux
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: th.AppColors.sidebarHover.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    _showProfileMenu(context);
-                  },
-                  borderRadius: BorderRadius.circular(10),
-                  child: Center(
-                    child: ScaleTransition(
-                      scale: _avatarScaleAnimation,
-                      child: _buildAvatar(),
-                    ),
-                  ),
-                ),
+                  _buildProfile(t),
+                  _buildToggle(t),
+                  const SizedBox(height: 8),
+                ],
               ),
             ),
           ),
-          
-          const SizedBox(height: 6),
-          
-          // ============================================
-          // BOUTON TOGGLE REDUIRE/AGRANDIR SÉCURISÉ
-          // ============================================
-          Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            child: InkWell(
-              onTap: () {
-                HapticFeedback.selectionClick();
-                widget.onToggleExpand();
-              },
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                height: 36, 
-                width: widget.isExpanded ? 264 : 64,
-                decoration: BoxDecoration(
-                  color: th.AppColors.sidebarHover.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: ClipRect(
-                  child: Stack(
-                    alignment: Alignment.centerLeft,
-                    children: [
-                      Positioned(
-                        left: widget.isExpanded ? 8 : 23, 
-                        child: Icon(
-                          widget.isExpanded
-                              ? Icons.chevron_left_rounded
-                              : Icons.chevron_right_rounded,
-                          color: th.AppColors.sidebarText,
-                          size: 18,
-                        ),
-                      ),
-                      if (widget.isExpanded)
-                        const Positioned(
-                          left: 34, 
-                          child: Text(
-                            'Réduire',
+        );
+      },
+    );
+  }
+
+  Widget _buildHeader(double t) {
+    return SizedBox(
+      height: 64,
+      child: t < 0.5
+          ? Center(child: _logo(36))
+          : Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  _logo(36),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Opacity(
+                      opacity: ((t - 0.3) / 0.7).clamp(0.0, 1.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Gis Gestion',
                             maxLines: 1,
-                            softWrap: false,
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.3,
                             ),
                           ),
-                        ),
-                    ],
+                          Text(
+                            'Gestion boutique',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.45),
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
+    );
+  }
+
+  Widget _logo(double size) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.asset(
+        'assets/images/logo_guiss_gestion1.png',
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: th.AppColors.brandAccent,
+            borderRadius: BorderRadius.circular(8),
           ),
-        ],
+          child: Icon(Icons.store_rounded, color: Colors.white, size: size * 0.55),
+        ),
       ),
     );
   }
 
-  /// ============================================
-  /// CONSTRUCTION DE L'AVATAR UTILISATEUR
-  /// ============================================
-  Widget _buildAvatar() {
-    if (_isLoadingProfile) {
-      return Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: th.AppColors.primaryGradient,
-          ),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: const Center(
-          child: SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+  Widget _navItem(int index, double t) {
+    final dest = widget.destinations[index];
+    final selected = widget.currentIndex == index;
+    final iconColor = selected ? Colors.white : th.AppColors.sidebarText;
+    final collapsed = t < 0.5;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Tooltip(
+        message: collapsed ? dest.label : '',
+        waitDuration: const Duration(milliseconds: 400),
+        child: Material(
+          color: selected ? th.AppColors.sidebarActive : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => widget.onNavigate(index),
+            hoverColor: th.AppColors.sidebarHover,
+            splashColor: Colors.white10,
+            child: SizedBox(
+              height: 40,
+              child: collapsed
+                  ? Center(
+                      child: Icon(
+                        selected ? dest.selectedIcon : dest.icon,
+                        size: 24,
+                        color: iconColor,
+                      ),
+                    )
+                  : Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          Icon(selected ? dest.selectedIcon : dest.icon, size: 24, color: iconColor),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Opacity(
+                              opacity: t.clamp(0.0, 1.0),
+                              child: Text(
+                                dest.label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: selected ? Colors.white : th.AppColors.sidebarText,
+                                  fontSize: 14,
+                                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
             ),
           ),
         ),
-      );
-    }
-
-    if (_userAvatarUrl != null && _userAvatarUrl!.isNotEmpty) {
-      return Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.network(
-            _userAvatarUrl!,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _buildInitialesAvatar(),
-          ),
-        ),
-      );
-    }
-
-    return _buildInitialesAvatar();
+      ),
+    );
   }
 
-  Widget _buildInitialesAvatar() {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: th.AppColors.primaryGradient,
+  Widget _buildProfile(double t) {
+    final active = widget.currentIndex == widget.profileNavIndex;
+    final collapsed = t < 0.5;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+      child: Material(
+        color: active ? th.AppColors.sidebarActive : Colors.transparent,
+        borderRadius: BorderRadius.circular(6),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            widget.onNavigate(widget.profileNavIndex);
+          },
+          hoverColor: th.AppColors.sidebarHover,
+          child: SizedBox(
+            height: 48,
+            child: collapsed
+                ? Center(child: _avatar(32))
+                : Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Opacity(
+                      opacity: t.clamp(0.0, 1.0),
+                      child: Row(
+                        children: [
+                          _avatar(32),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _userName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  _userEmail.isNotEmpty ? _userEmail : 'Mon profil',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.45),
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: active ? th.AppColors.brandAccentLight : Colors.white38,
+                            size: 18,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+          ),
         ),
-        borderRadius: BorderRadius.circular(10),
+      ),
+    );
+  }
+
+  Widget _avatar(double size) {
+    if (_loadingProfile) {
+      return SizedBox(
+        width: size,
+        height: size,
+        child: const CircularProgressIndicator(strokeWidth: 2, color: th.AppColors.brandAccent),
+      );
+    }
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [th.AppColors.brandAccent, Color(0xFF5B3FD4)]),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Center(
         child: Text(
-          _getInitiales(),
-          style: const TextStyle(
+          _initials(),
+          style: TextStyle(
             color: Colors.white,
-            fontSize: 16,
+            fontSize: size * 0.38,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -994,185 +567,262 @@ class _DesktopSidebarState extends State<_DesktopSidebar> with SingleTickerProvi
     );
   }
 
-  void _showProfileMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+  Widget _buildToggle(double t) {
+    final collapsed = t < 0.5;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Material(
+        color: th.AppColors.sidebarHover.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(6),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: widget.onToggleExpand,
+          hoverColor: th.AppColors.sidebarActive,
+          child: SizedBox(
+            height: 36,
+            child: collapsed
+                ? Center(
+                    child: Icon(Icons.chevron_right_rounded, color: th.AppColors.sidebarText, size: 20),
+                  )
+                : Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        Icon(Icons.chevron_left_rounded, color: th.AppColors.sidebarText, size: 20),
+                        const SizedBox(width: 8),
+                        Opacity(
+                          opacity: t,
+                          child: Text(
+                            'Réduire',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
         ),
+      ),
+    );
+  }
+}
+
+// ─── Mobile drawer ───────────────────────────────────────────────────────────
+
+class _MobileDrawer extends StatefulWidget {
+  final List<NavDestination> destinations;
+  final int currentIndex;
+  final int profileNavIndex;
+  final Function(int) onNavigate;
+
+  const _MobileDrawer({
+    required this.destinations,
+    required this.currentIndex,
+    required this.profileNavIndex,
+    required this.onNavigate,
+  });
+
+  @override
+  State<_MobileDrawer> createState() => _MobileDrawerState();
+}
+
+class _MobileDrawerState extends State<_MobileDrawer> {
+  String _userName = 'Utilisateur';
+  String _userEmail = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    var name = user.email?.split('@').first ?? 'Utilisateur';
+    try {
+      final row = await Supabase.instance.client
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .maybeSingle();
+      if (row?['full_name'] != null) name = row!['full_name'].toString();
+    } catch (_) {}
+    if (mounted) {
+      setState(() {
+        _userName = name;
+        _userEmail = user.email ?? '';
+      });
+    }
+  }
+
+  String _initials() {
+    final parts = _userName.trim().split(' ');
+    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    return _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      backgroundColor: th.AppColors.sidebarBg,
+      child: SafeArea(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              width: 50,
-              height: 5,
-              margin: const EdgeInsets.only(top: 12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Avatar
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: th.AppColors.primaryGradient,
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: th.AppColors.primaryIndigo.withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.asset(
+                      'assets/images/logo_guiss_gestion1.png',
+                      width: 44,
+                      height: 44,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Gis Gestion',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          'Gestion boutique',
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
-              child: Center(
-                child: Text(
-                  _getInitiales(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+            ),
+            const Divider(color: Color(0xFF1A1A1A), height: 1),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                itemCount: widget.destinations.length,
+                itemBuilder: (_, i) => _drawerItem(i),
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              _userName,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: th.AppColors.textDark,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _userEmail,
-              style: TextStyle(
-                fontSize: 14,
-                color: th.AppColors.textMuted,
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Menu items
-            _buildProfileMenuItem(
-              icon: Icons.person_outline,
-              title: 'Mon Profil',
-              subtitle: 'Gérer mes informations',
-              color: th.AppColors.primaryIndigo,
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Navigator.push vers la page profil
-              },
-            ),
-            _buildProfileMenuItem(
-              icon: Icons.store_outlined,
-              title: 'Ma Boutique',
-              subtitle: 'Paramètres de la boutique',
-              color: th.AppColors.primaryGreen,
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Navigator.push vers les paramètres boutique
-              },
-            ),
-            _buildProfileMenuItem(
-              icon: Icons.help_outline,
-              title: 'Aide & Support',
-              subtitle: 'FAQ et assistance',
-              color: th.AppColors.primaryOrange,
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
-            const Divider(height: 32),
-            _buildProfileMenuItem(
-              icon: Icons.logout,
-              title: 'Déconnexion',
-              subtitle: 'Se déconnecter de l\'application',
-              color: th.AppColors.danger,
-              onTap: () async {
-                Navigator.pop(context);
-                await _deconnecter();
-              },
-            ),
-            const SizedBox(height: 24),
+            _drawerProfile(),
+            const SizedBox(height: 8),
           ],
         ),
       ),
     );
   }
 
-  /// ============================================
-  /// DÉCONNEXION SUPABASE
-  /// ============================================
-  Future<void> _deconnecter() async {
-    try {
-      await Supabase.instance.client.auth.signOut();
-      if (mounted) {
-        // Redirection vers login
-        Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
-      }
-    } catch (e) {
-      debugPrint('Erreur déconnexion: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: th.AppColors.danger,
+  Widget _drawerItem(int index) {
+    final dest = widget.destinations[index];
+    final selected = widget.currentIndex == index;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Material(
+        color: selected ? th.AppColors.sidebarActive : Colors.transparent,
+        borderRadius: BorderRadius.circular(6),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => widget.onNavigate(index),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Icon(
+                  selected ? dest.selectedIcon : dest.icon,
+                  color: selected ? Colors.white : th.AppColors.sidebarText,
+                  size: 24,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    dest.label,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: selected ? Colors.white : th.AppColors.sidebarText,
+                      fontSize: 14,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        );
-      }
-    }
+        ),
+      ),
+    );
   }
 
-  Widget _buildProfileMenuItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      onTap: onTap,
-      leading: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
+  Widget _drawerProfile() {
+    final active = widget.currentIndex == widget.profileNavIndex;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      child: Material(
+        color: active ? th.AppColors.sidebarActive : th.AppColors.sidebarHover.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(6),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => widget.onNavigate(widget.profileNavIndex),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [th.AppColors.brandAccent, Color(0xFF5B3FD4)]),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _initials(),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _userName,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        _userEmail,
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 10),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: active ? th.AppColors.brandAccentLight : Colors.white38,
+                ),
+              ],
+            ),
+          ),
         ),
-        child: Icon(
-          icon,
-          color: color,
-          size: 22,
-        ),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          color: th.AppColors.textDark,
-          fontSize: 15,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(
-          fontSize: 12,
-          color: th.AppColors.textMuted,
-        ),
-      ),
-      trailing: Icon(
-        Icons.chevron_right,
-        color: th.AppColors.textMuted,
       ),
     );
   }

@@ -16,9 +16,13 @@ class ProduitModel {
   final String? description;
   final double prixAchatTotal;
   final double prixVenteUnitaire;
+  final double? prixVenteGros;
   final String? uniteAchat;
   final String? uniteVente;
   final double quantiteParUnite;
+  final String? uniteIntermediaire;
+  final double? quantiteBaseParIntermediaire;
+  final double? quantiteIntermediaireParLot;
   final double stock;
   final String? fournisseur;
   final String? telephoneFournisseur;
@@ -39,9 +43,13 @@ class ProduitModel {
     this.description,
     this.prixAchatTotal = 0.0,
     this.prixVenteUnitaire = 0.0,
+    this.prixVenteGros,
     this.uniteAchat,
     this.uniteVente,
     this.quantiteParUnite = 1.0,
+    this.uniteIntermediaire,
+    this.quantiteBaseParIntermediaire,
+    this.quantiteIntermediaireParLot,
     this.stock = 0.0,
     this.fournisseur,
     this.telephoneFournisseur,
@@ -54,12 +62,24 @@ class ProduitModel {
     this.prixVenteKg = 0.0,
   });
 
-  /// ============================================
-  /// DESÉRIALISATION : CONVERTIR LE JSON SUPABASE VERS DART
-  /// ============================================
-    /// ============================================
-  /// DESÉRIALISATION : CONVERTIR LE JSON SUPABASE VERS DART
-  /// ============================================
+  static const _unitesAchatGros = {'carton', 'sac', 'bidon', 'paquet', 'boîte'};
+
+  /// Prix de revente en gros (1 lot = [uniteAchat]) renseigné
+  bool get vendEnGros => (prixVenteGros ?? 0) > 0;
+
+  /// Achat typique grossiste : lot ou fournisseur renseigné
+  bool get approvisionneViaGrossiste =>
+      (fournisseur != null && fournisseur!.trim().isNotEmpty) ||
+      _unitesAchatGros.contains(uniteAchat);
+
+  /// Conditionnement à 3 niveaux : paquet → sachet → pièce
+  bool get hasPackagingIntermediaire =>
+      uniteIntermediaire != null &&
+      uniteIntermediaire!.isNotEmpty &&
+      (quantiteBaseParIntermediaire ?? 0) > 0 &&
+      (quantiteIntermediaireParLot ?? 0) > 0;
+
+  /// Factory ProduitModel.fromJson
   factory ProduitModel.fromJson(Map<String, dynamic> json) {
     String? nomExtrait;
     
@@ -81,9 +101,13 @@ class ProduitModel {
       description: json['description']?.toString(),
       prixAchatTotal: _toDouble(json['prix_achat_total']),
       prixVenteUnitaire: _toDouble(json['prix_vente_unitaire']),
+      prixVenteGros: _optionalDouble(json['prix_vente_gros']),
       uniteAchat: json['unite_achat']?.toString(),
       uniteVente: json['unite_vente']?.toString(),
       quantiteParUnite: _toDouble(json['quantite_par_unite'] ?? 1.0),
+      uniteIntermediaire: json['unite_intermediaire']?.toString(),
+      quantiteBaseParIntermediaire: _optionalDouble(json['quantite_base_par_intermediaire']),
+      quantiteIntermediaireParLot: _optionalDouble(json['quantite_intermediaire_par_lot']),
       stock: _toDouble(json['stock']),
       fournisseur: json['fournisseur']?.toString(),
       telephoneFournisseur: json['telephone_fournisseur']?.toString(),
@@ -107,6 +131,7 @@ class ProduitModel {
       'description': description,
       'prix_achat_total': prixAchatTotal,
       'prix_vente_unitaire': prixVenteUnitaire,
+      if (prixVenteGros != null) 'prix_vente_gros': prixVenteGros,
       'unite_achat': uniteAchat,
       'unite_vente': uniteVente,
       'quantite_par_unite': quantiteParUnite,
@@ -125,8 +150,21 @@ class ProduitModel {
     if (categoryId != null) data['category_id'] = categoryId;
     if (dateCreation != null) data['date_creation'] = dateCreation;
     if (updatedAt != null) data['updated_at'] = updatedAt;
+    if (uniteIntermediaire != null) data['unite_intermediaire'] = uniteIntermediaire;
+    if (quantiteBaseParIntermediaire != null) {
+      data['quantite_base_par_intermediaire'] = quantiteBaseParIntermediaire;
+    }
+    if (quantiteIntermediaireParLot != null) {
+      data['quantite_intermediaire_par_lot'] = quantiteIntermediaireParLot;
+    }
 
     return data;
+  }
+
+  static double? _optionalDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
   }
 
   /// ============================================
@@ -150,9 +188,13 @@ class ProduitModel {
     String? description,
     double? prixAchatTotal,
     double? prixVenteUnitaire,
+    double? prixVenteGros,
     String? uniteAchat,
     String? uniteVente,
     double? quantiteParUnite,
+    String? uniteIntermediaire,
+    double? quantiteBaseParIntermediaire,
+    double? quantiteIntermediaireParLot,
     double? stock,
     String? fournisseur,
     String? telephoneFournisseur,
@@ -173,9 +215,15 @@ class ProduitModel {
       description: description ?? this.description,
       prixAchatTotal: prixAchatTotal ?? this.prixAchatTotal,
       prixVenteUnitaire: prixVenteUnitaire ?? this.prixVenteUnitaire,
+      prixVenteGros: prixVenteGros ?? this.prixVenteGros,
       uniteAchat: uniteAchat ?? this.uniteAchat,
       uniteVente: uniteVente ?? this.uniteVente,
       quantiteParUnite: quantiteParUnite ?? this.quantiteParUnite,
+      uniteIntermediaire: uniteIntermediaire ?? this.uniteIntermediaire,
+      quantiteBaseParIntermediaire:
+          quantiteBaseParIntermediaire ?? this.quantiteBaseParIntermediaire,
+      quantiteIntermediaireParLot:
+          quantiteIntermediaireParLot ?? this.quantiteIntermediaireParLot,
       stock: stock ?? this.stock,
       fournisseur: fournisseur ?? this.fournisseur,
       telephoneFournisseur: telephoneFournisseur ?? this.telephoneFournisseur,

@@ -71,7 +71,7 @@ class VenteModel {
       estCredit: json['est_credit'] == true,
       remise: _toDouble(json['remise']),
       montantPaye: _toDouble(json['montant_paye']),
-      resteAPayer: _toDouble(json['reste_a_payer']),
+      resteAPayer: _toDouble(json['reste_a_payer'] ?? json['reste']),
       montantTotal: _toDouble(json['montant_total']),
       createdAt: json['created_at']?.toString(),
     );

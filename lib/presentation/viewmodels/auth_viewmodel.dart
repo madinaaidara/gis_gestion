@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/auth/oauth_helper.dart';
+
 class AuthViewModel extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -45,6 +47,21 @@ class AuthViewModel extends ChangeNotifier {
       );
       _setLoading(false);
       return response.user != null;
+    } catch (e) {
+      _setError(_convertErrorMessage(e.toString()));
+      _setLoading(false);
+      return false;
+    }
+  }
+
+  /// Connexion Google (OAuth Supabase)
+  Future<bool> signInWithGoogle() async {
+    _setLoading(true);
+    _clearError();
+    try {
+      await OAuthHelper.signInWithGoogle();
+      _setLoading(false);
+      return true;
     } catch (e) {
       _setError(_convertErrorMessage(e.toString()));
       _setLoading(false);

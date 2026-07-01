@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 // Constantes globales de configuration
 import 'core/constants/supabase_constants.dart';
@@ -16,6 +17,8 @@ import 'data/repositories/abonnement_repository.dart';
 // Importations des Repositories 
 import 'data/repositories/shops_repository.dart'; 
 import 'data/repositories/profil_repository.dart';
+import 'data/repositories/stats_repository.dart';
+import 'data/repositories/assistant_repository.dart';
 
 // COUCHE PRÉSENTATION : Flux de navigation et d'écrans
 import 'presentation/widgets/auth_wrapper.dart';
@@ -23,12 +26,16 @@ import 'presentation/pages/auth/login_page.dart';
 import 'presentation/pages/navigation/navigation_page.dart';
 import 'presentation/pages/onboarding/setup_boutique_page.dart';
 import 'presentation/pages/onboarding/onboarding_tour_page.dart';
+import 'presentation/pages/abonnement/abonnement_page.dart';
 
 import 'presentation/viewmodels/auth_viewmodel.dart';
 import 'presentation/viewmodels/credits_viewmodel.dart';
 import 'presentation/viewmodels/shop_viewmodel.dart';
 import 'presentation/viewmodels/ventes_viewmodel.dart';
 import 'presentation/viewmodels/products_viewmodel.dart';
+import 'presentation/viewmodels/stats_viewmodel.dart';
+import 'presentation/viewmodels/assistant_viewmodel.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,13 +44,18 @@ void main() async {
   await Supabase.initialize(
     url: SupabaseConstants.supabaseUrl,
     anonKey: SupabaseConstants.supabaseAnonKey,
+    authOptions: const FlutterAuthClientOptions(
+      authFlowType: AuthFlowType.pkce,
+    ),
   );
+  
+  await initializeDateFormatting('fr_FR', null);
 
-  runApp(const GuissGestionApp());
+  runApp(const GisGestionApp());
 }
 
-class GuissGestionApp extends StatelessWidget {
-  const GuissGestionApp({super.key});
+class GisGestionApp extends StatelessWidget {
+  const GisGestionApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +76,7 @@ class GuissGestionApp extends StatelessWidget {
         
         ChangeNotifierProxyProvider<ShopsRepository, ShopViewModel>(
           create: (context) => ShopViewModel(Provider.of<ShopsRepository>(context, listen: false)),
-          update: (_, repo, __) => ShopViewModel(repo),
+          update: (_, repo, previous) => previous ?? ShopViewModel(repo),
         ),
         
         ChangeNotifierProxyProvider2<ProductsRepository, CategoriesRepository, ProductsViewModel>(
@@ -72,7 +84,8 @@ class GuissGestionApp extends StatelessWidget {
             Provider.of<ProductsRepository>(context, listen: false),
             Provider.of<CategoriesRepository>(context, listen: false),
           ),
-          update: (_, repoProd, repoCat, __) => ProductsViewModel(repoProd, repoCat),
+          update: (_, repoProd, repoCat, previous) =>
+              previous ?? ProductsViewModel(repoProd, repoCat),
         ),
         
         ChangeNotifierProxyProvider3<VentesRepository, ProductsRepository, CreditsRepository, VentesViewModel>(
@@ -80,18 +93,22 @@ class GuissGestionApp extends StatelessWidget {
             Provider.of<ProductsRepository>(context, listen: false),
             Provider.of<CreditsRepository>(context, listen: false),
           ),
-          update: (_, rVente, rProd, rCredit, __) => VentesViewModel(rProd, rCredit),
+          update: (_, rVente, rProd, rCredit, previous) =>
+              previous ?? VentesViewModel(rProd, rCredit),
         ),
         
         ChangeNotifierProxyProvider<CreditsRepository, CreditsViewModel>(
           create: (context) => CreditsViewModel(Provider.of<CreditsRepository>(context, listen: false)),
-          update: (_, repo, __) => CreditsViewModel(repo),
+          update: (_, repo, previous) => previous ?? CreditsViewModel(repo),
         ),
+        ChangeNotifierProvider(create: (_) => StatsViewModel(StatsRepository())),
+        ChangeNotifierProvider(create: (_) => AssistantViewModel(AssistantRepository())),
       ],
+
 
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'GIS Gestion',
+        title: 'Gis Gestion',
         
         // ============================================
         // CONFIGURATION DU THÈME VISUEL SAAS PREMIUM
@@ -121,6 +138,7 @@ class GuissGestionApp extends StatelessWidget {
           '/navigation': (context) => const NavigationPage(indexInitial: 0),
           '/setup-boutique': (context) => const SetupBoutiquePage(),
           '/onboarding-tour': (context) => const OnboardingTourPage(),
+          '/abonnement': (context) => const AbonnementPage(),
         },
       ),
     );

@@ -33,13 +33,11 @@ class CategoriesRepository extends ChangeNotifier {
 
       final List<Map<String, dynamic>> data = List<Map<String, dynamic>>.from(response);
 
-      // Si la boutique n'a aucune catégorie, on injecte le pack de démarrage automatique
       if (data.isEmpty) {
         await _createDefaultCategories(shopId);
-        return;
+      } else {
+        _categories = data.map((json) => CategoryModel.fromJson(json)).toList();
       }
-
-      _categories = data.map((json) => CategoryModel.fromJson(json)).toList();
     } catch (e) {
       debugPrint('🚨 Erreur fetchCategories: $e');
     }
