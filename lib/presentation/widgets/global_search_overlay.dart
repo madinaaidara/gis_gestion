@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_surface.dart';
+import '../../core/theme/gis_palette.dart';
 import '../../data/models/produit_model.dart';
 import '../../data/models/credit_model.dart';
 import '../../data/repositories/products_repository.dart';
@@ -45,12 +47,8 @@ class GlobalSearchOverlay extends StatefulWidget {
 }
 
 class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
-  static const Color _bg = Color(0xFF121212);
-  static const Color _surface = Color(0xFF1A1A1A);
-  static const Color _border = Color(0xFF282828);
-  static const Color _text = Color(0xFFF5F5F7);
-  static const Color _mute = Color(0xFFB3B3B3);
-  static const Color _accent = Color(0xFF7C5CFF);
+  GisPalette get _p => GisPalette.of(context);
+
 
   final _focusNode = FocusNode();
   final _controller = TextEditingController();
@@ -145,7 +143,7 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
     final isWide = width >= 700;
 
     return Material(
-      color: _bg,
+      color: _p.bg,
       child: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -161,23 +159,23 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
                         child: Container(
                           height: 48,
                           decoration: BoxDecoration(
-                            color: _surface,
+                            color: _p.surface,
                             borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: _border),
+                            border: Border.all(color: _p.border),
                           ),
                           child: Row(
                             children: [
                               const SizedBox(width: 16),
-                              const Icon(Icons.search_rounded, color: _mute, size: 22),
+                               Icon(Icons.search_rounded, color: _p.textMute, size: 22),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: TextField(
                                   controller: _controller,
                                   focusNode: _focusNode,
-                                  style: GoogleFonts.plusJakartaSans(color: _text, fontSize: 15),
+                                  style: GoogleFonts.plusJakartaSans(color: _p.text, fontSize: 15),
                                   decoration: InputDecoration(
                                     hintText: 'Produits, clients, pages…',
-                                    hintStyle: TextStyle(color: _mute.withValues(alpha: 0.7), fontSize: 15),
+                                    hintStyle: TextStyle(color: _p.textMute.withValues(alpha: 0.7), fontSize: 15),
                                     border: InputBorder.none,
                                     isDense: true,
                                   ),
@@ -186,7 +184,7 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
                               ),
                               if (_controller.text.isNotEmpty)
                                 IconButton(
-                                  icon: const Icon(Icons.close_rounded, color: _mute, size: 20),
+                                  icon:  Icon(Icons.close_rounded, color: _p.textMute, size: 20),
                                   onPressed: () {
                                     _controller.clear();
                                     setState(() {
@@ -202,32 +200,32 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
                       const SizedBox(width: 8),
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _text, size: 28),
+                        icon:  Icon(Icons.keyboard_arrow_down_rounded, color: _p.text, size: 28),
                       ),
                     ],
                   ),
                   const SizedBox(height: 20),
                   if (_controller.text.trim().isEmpty) ...[
-                    Text('Pages', style: GoogleFonts.plusJakartaSans(color: _mute, fontSize: 12, fontWeight: FontWeight.w600)),
+                    Text('Pages', style: GoogleFonts.plusJakartaSans(color: _p.textMute, fontSize: 12, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 10),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: _quickPages.map((p) {
                         return ActionChip(
-                          backgroundColor: _surface,
-                          side: const BorderSide(color: _border),
-                          label: Text(p.$2, style: const TextStyle(color: _text, fontSize: 12)),
-                          avatar: Icon(p.$1, size: 16, color: _accent),
+                          backgroundColor: _p.surface,
+                          side:  BorderSide(color: _p.border),
+                          label: Text(p.$2, style:  TextStyle(color: _p.text, fontSize: 12)),
+                          avatar: Icon(p.$1, size: 16, color: _p.accent),
                           onPressed: () => _closeAndNavigate(p.$3),
                         );
                       }).toList(),
                     ),
                   ] else ...[
                     if (_loading)
-                      const Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: _accent)),
+                      Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: _p.accent)),
                       )
                     else if (_productResults.isEmpty && _clientResults.isEmpty)
                       Padding(
@@ -235,7 +233,7 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
                         child: Text(
                           'Aucun résultat',
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: _mute.withValues(alpha: 0.8), fontSize: 14),
+                          style: TextStyle(color: _p.textMute.withValues(alpha: 0.8), fontSize: 14),
                         ),
                       )
                     else
@@ -243,13 +241,13 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
                         child: ListView(
                           children: [
                             if (_clientResults.isNotEmpty) ...[
-                              Text('Clients crédit', style: GoogleFonts.plusJakartaSans(color: _mute, fontSize: 12, fontWeight: FontWeight.w600)),
+                              Text('Clients crédit', style: GoogleFonts.plusJakartaSans(color: _p.textMute, fontSize: 12, fontWeight: FontWeight.w600)),
                               const SizedBox(height: 8),
                               ..._clientResults.map((c) => _clientTile(c)),
                               const SizedBox(height: 16),
                             ],
                             if (_productResults.isNotEmpty) ...[
-                              Text('Produits', style: GoogleFonts.plusJakartaSans(color: _mute, fontSize: 12, fontWeight: FontWeight.w600)),
+                              Text('Produits', style: GoogleFonts.plusJakartaSans(color: _p.textMute, fontSize: 12, fontWeight: FontWeight.w600)),
                               const SizedBox(height: 8),
                               ..._productResults.map((p) => _productTile(p)),
                             ],
@@ -270,7 +268,7 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Material(
-        color: _surface,
+        color: _p.surface,
         borderRadius: BorderRadius.circular(8),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -283,10 +281,10 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: _accent.withValues(alpha: 0.15),
+                    color: _p.accent.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Icon(Icons.inventory_2_outlined, color: _accent, size: 20),
+                  child:  Icon(Icons.inventory_2_outlined, color: _p.accent, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -294,17 +292,17 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(p.nom, maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: _text, fontWeight: FontWeight.w600, fontSize: 14)),
+                          style:  TextStyle(color: _p.text, fontWeight: FontWeight.w600, fontSize: 14)),
                       Text(
                         'Stock: ${p.stock.toStringAsFixed(0)} · ${p.prixVenteUnitaire.toStringAsFixed(0)} FCFA',
-                        style: TextStyle(color: _mute.withValues(alpha: 0.85), fontSize: 11),
+                        style: TextStyle(color: _p.textMute.withValues(alpha: 0.85), fontSize: 11),
                       ),
                     ],
                   ),
                 ),
                 TextButton(
                   onPressed: () => _closeAndNavigate(1),
-                  child: const Text('Caisse', style: TextStyle(color: _accent, fontSize: 12)),
+                  child:  Text('Caisse', style: TextStyle(color: _p.accent, fontSize: 12)),
                 ),
               ],
             ),
@@ -318,7 +316,7 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Material(
-        color: _surface,
+        color: _p.surface,
         borderRadius: BorderRadius.circular(8),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -334,7 +332,7 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
                     color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Icon(Icons.person_outline_rounded, color: Color(0xFFF59E0B), size: 20),
+                  child: Icon(Icons.person_outline_rounded, color: Color(0xFFF59E0B), size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -342,10 +340,10 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(c.clientNom, maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: _text, fontWeight: FontWeight.w600, fontSize: 14)),
+                          style:  TextStyle(color: _p.text, fontWeight: FontWeight.w600, fontSize: 14)),
                       Text(
                         '${c.telephoneClient ?? '—'} · Reste ${c.reste.toStringAsFixed(0)} FCFA',
-                        style: TextStyle(color: _mute.withValues(alpha: 0.85), fontSize: 11),
+                        style: TextStyle(color: _p.textMute.withValues(alpha: 0.85), fontSize: 11),
                       ),
                     ],
                   ),

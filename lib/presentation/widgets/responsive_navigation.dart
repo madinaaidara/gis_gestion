@@ -4,10 +4,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/app_colors.dart' as th;
+import '../../core/theme/app_surface.dart';
+import '../../core/theme/gis_palette.dart';
 
 import 'global_search_overlay.dart';
 import 'spotify_top_bar.dart';
 import 'gis_assistant_host.dart';
+import 'theme_toggle_button.dart';
 
 /// Navigation responsive style Spotify / SaaS premium :
 /// - Desktop : sidebar + top bar recherche
@@ -37,6 +40,8 @@ class ResponsiveNavigation extends StatefulWidget {
 }
 
 class _ResponsiveNavigationState extends State<ResponsiveNavigation> {
+  GisPalette get _p => GisPalette.of(context);
+
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _sidebarExpanded = true;
 
@@ -78,7 +83,7 @@ class _ResponsiveNavigationState extends State<ResponsiveNavigation> {
       builder: (context, constraints) {
         if (constraints.maxWidth >= 1200) {
           return Scaffold(
-            backgroundColor: th.AppColors.sidebarBg,
+            backgroundColor: AppSurface.bg,
             body: Row(
               children: [
                 _DesktopSidebar(
@@ -117,28 +122,29 @@ class _ResponsiveNavigationState extends State<ResponsiveNavigation> {
 
         return Scaffold(
           key: _scaffoldKey,
-          backgroundColor: const Color(0xFF050505),
+          backgroundColor: AppSurface.bg,
           appBar: AppBar(
-            backgroundColor: const Color(0xFF000000),
+            backgroundColor: _p.scaffold,
             elevation: 0,
             surfaceTintColor: Colors.transparent,
             leading: IconButton(
-              icon: const Icon(Icons.menu_rounded, color: Colors.white),
+              icon: Icon(Icons.menu_rounded, color: AppSurface.text),
               onPressed: () => _scaffoldKey.currentState?.openDrawer(),
             ),
             title: Text(
               _mobilePageTitle(),
               style: GoogleFonts.plusJakartaSans(
-                color: Colors.white,
+                color: AppSurface.text,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.3,
               ),
             ),
             actions: [
+              const ThemeToggleButton(compact: true),
               const GisAssistantToolbarButton(compact: true),
               IconButton(
-                icon: const Icon(Icons.search_rounded, color: Colors.white),
+                icon: Icon(Icons.search_rounded, color: AppSurface.text),
                 tooltip: 'Rechercher (Ctrl+K)',
                 onPressed: _openSearch,
               ),
@@ -153,8 +159,8 @@ class _ResponsiveNavigationState extends State<ResponsiveNavigation> {
           body: widget.child,
           bottomNavigationBar: NavigationBar(
             selectedIndex: bottomIndex.clamp(0, 4),
-            backgroundColor: const Color(0xFF000000),
-            indicatorColor: th.AppColors.sidebarActive,
+            backgroundColor: _p.scaffold,
+            indicatorColor: _p.sidebarActive,
             height: 64,
             labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
             onDestinationSelected: (i) {
@@ -167,13 +173,13 @@ class _ResponsiveNavigationState extends State<ResponsiveNavigation> {
             destinations: [
               for (final t in _mobileTabs)
                 NavigationDestination(
-                  icon: Icon(t.$2, color: th.AppColors.sidebarText),
-                  selectedIcon: Icon(t.$3, color: Colors.white),
+                  icon: Icon(t.$2, color: _p.sidebarText),
+                  selectedIcon: Icon(t.$3, color: _p.sidebarTextSelected),
                   label: t.$4,
                 ),
-              const NavigationDestination(
-                icon: Icon(Icons.menu_rounded, color: th.AppColors.sidebarText),
-                selectedIcon: Icon(Icons.menu_rounded, color: Colors.white),
+              NavigationDestination(
+                icon: Icon(Icons.menu_rounded, color: _p.sidebarText),
+                selectedIcon: Icon(Icons.menu_rounded, color: _p.sidebarTextSelected),
                 label: 'Menu',
               ),
             ],
@@ -233,6 +239,8 @@ class _DesktopSidebar extends StatefulWidget {
 }
 
 class _DesktopSidebarState extends State<_DesktopSidebar> with SingleTickerProviderStateMixin {
+  GisPalette get _p => GisPalette.of(context);
+
   late AnimationController _widthCtrl;
   late Animation<double> _widthAnim;
 
@@ -313,9 +321,9 @@ class _DesktopSidebarState extends State<_DesktopSidebar> with SingleTickerProvi
           child: SizedBox(
             width: width,
             child: DecoratedBox(
-              decoration: const BoxDecoration(
-                color: th.AppColors.sidebarBg,
-                border: Border(right: BorderSide(color: Color(0xFF1A1A1A), width: 1)),
+              decoration: BoxDecoration(
+                color: _p.sidebarBg,
+                border: Border(right: BorderSide(color: _p.sidebarBorder, width: 1)),
               ),
               child: Column(
                 children: [
@@ -329,6 +337,7 @@ class _DesktopSidebarState extends State<_DesktopSidebar> with SingleTickerProvi
                     ),
                   ),
                   _buildProfile(t),
+                  _buildThemeRow(t),
                   _buildToggle(t),
                   const SizedBox(height: 8),
                 ],
@@ -363,7 +372,7 @@ class _DesktopSidebarState extends State<_DesktopSidebar> with SingleTickerProvi
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.plusJakartaSans(
-                              color: Colors.white,
+                              color: _p.sidebarTextSelected,
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
                               letterSpacing: -0.3,
@@ -374,8 +383,9 @@ class _DesktopSidebarState extends State<_DesktopSidebar> with SingleTickerProvi
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.45),
-                              fontSize: 10,
+                              color: _p.sidebarText,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
@@ -412,56 +422,78 @@ class _DesktopSidebarState extends State<_DesktopSidebar> with SingleTickerProvi
   Widget _navItem(int index, double t) {
     final dest = widget.destinations[index];
     final selected = widget.currentIndex == index;
-    final iconColor = selected ? Colors.white : th.AppColors.sidebarText;
+    final iconColor = selected ? _p.accent : _p.sidebarText;
     final collapsed = t < 0.5;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 2),
       child: Tooltip(
         message: collapsed ? dest.label : '',
         waitDuration: const Duration(milliseconds: 400),
         child: Material(
-          color: selected ? th.AppColors.sidebarActive : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: () => widget.onNavigate(index),
-            hoverColor: th.AppColors.sidebarHover,
-            splashColor: Colors.white10,
-            child: SizedBox(
+            hoverColor: _p.sidebarHover,
+            splashColor: _p.accent.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(8),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
               height: 40,
-              child: collapsed
-                  ? Center(
-                      child: Icon(
-                        selected ? dest.selectedIcon : dest.icon,
-                        size: 24,
-                        color: iconColor,
-                      ),
-                    )
-                  : Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        children: [
-                          Icon(selected ? dest.selectedIcon : dest.icon, size: 24, color: iconColor),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Opacity(
-                              opacity: t.clamp(0.0, 1.0),
-                              child: Text(
-                                dest.label,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: selected ? Colors.white : th.AppColors.sidebarText,
-                                  fontSize: 14,
-                                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              decoration: BoxDecoration(
+                color: selected ? _p.sidebarActive : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: selected ? 3 : 0,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: _p.accent,
+                      borderRadius: const BorderRadius.horizontal(left: Radius.circular(8)),
+                    ),
+                  ),
+                  Expanded(
+                    child: collapsed
+                        ? Center(
+                            child: Icon(
+                              selected ? dest.selectedIcon : dest.icon,
+                              size: 22,
+                              color: iconColor,
+                            ),
+                          )
+                        : Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              children: [
+                                Icon(selected ? dest.selectedIcon : dest.icon, size: 20, color: iconColor),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Opacity(
+                                    opacity: t.clamp(0.0, 1.0),
+                                    child: Text(
+                                      dest.label,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: selected ? _p.sidebarTextSelected : _p.sidebarText,
+                                        fontSize: 13.5,
+                                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                                        letterSpacing: -0.1,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -476,7 +508,7 @@ class _DesktopSidebarState extends State<_DesktopSidebar> with SingleTickerProvi
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
       child: Material(
-        color: active ? th.AppColors.sidebarActive : Colors.transparent,
+        color: active ? _p.sidebarActive : Colors.transparent,
         borderRadius: BorderRadius.circular(6),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -484,7 +516,7 @@ class _DesktopSidebarState extends State<_DesktopSidebar> with SingleTickerProvi
             HapticFeedback.selectionClick();
             widget.onNavigate(widget.profileNavIndex);
           },
-          hoverColor: th.AppColors.sidebarHover,
+          hoverColor: _p.sidebarHover,
           child: SizedBox(
             height: 48,
             child: collapsed
@@ -506,8 +538,8 @@ class _DesktopSidebarState extends State<_DesktopSidebar> with SingleTickerProvi
                                   _userName,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: _p.sidebarTextSelected,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -517,7 +549,7 @@ class _DesktopSidebarState extends State<_DesktopSidebar> with SingleTickerProvi
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.45),
+                                    color: _p.sidebarText,
                                     fontSize: 10,
                                   ),
                                 ),
@@ -526,7 +558,7 @@ class _DesktopSidebarState extends State<_DesktopSidebar> with SingleTickerProvi
                           ),
                           Icon(
                             Icons.chevron_right_rounded,
-                            color: active ? th.AppColors.brandAccentLight : Colors.white38,
+                            color: active ? th.AppColors.brandAccent : _p.sidebarText,
                             size: 18,
                           ),
                         ],
@@ -551,7 +583,7 @@ class _DesktopSidebarState extends State<_DesktopSidebar> with SingleTickerProvi
       width: size,
       height: size,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [th.AppColors.brandAccent, Color(0xFF5B3FD4)]),
+        gradient: LinearGradient(colors: [th.AppColors.brandAccent, Color(0xFF5B3FD4)]),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Center(
@@ -567,35 +599,51 @@ class _DesktopSidebarState extends State<_DesktopSidebar> with SingleTickerProvi
     );
   }
 
+  Widget _buildThemeRow(double t) {
+    final collapsed = t < 0.5;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+      child: collapsed
+          ? const Center(child: ThemeToggleButton(compact: true))
+          : Align(
+              alignment: Alignment.centerLeft,
+              child: Opacity(
+                opacity: t.clamp(0.0, 1.0),
+                child: const ThemeToggleButton(style: ThemeToggleStyle.pill, compact: true),
+              ),
+            ),
+    );
+  }
+
   Widget _buildToggle(double t) {
     final collapsed = t < 0.5;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Material(
-        color: th.AppColors.sidebarHover.withValues(alpha: 0.5),
+        color: _p.sidebarHover.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(6),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: widget.onToggleExpand,
-          hoverColor: th.AppColors.sidebarActive,
+          hoverColor: _p.sidebarActive,
           child: SizedBox(
             height: 36,
             child: collapsed
                 ? Center(
-                    child: Icon(Icons.chevron_right_rounded, color: th.AppColors.sidebarText, size: 20),
+                    child: Icon(Icons.chevron_right_rounded, color: _p.sidebarText, size: 20),
                   )
                 : Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Row(
                       children: [
-                        Icon(Icons.chevron_left_rounded, color: th.AppColors.sidebarText, size: 20),
+                        Icon(Icons.chevron_left_rounded, color: _p.sidebarText, size: 20),
                         const SizedBox(width: 8),
                         Opacity(
                           opacity: t,
                           child: Text(
                             'Réduire',
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.6),
+                              color: _p.sidebarText,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                             ),
@@ -631,6 +679,8 @@ class _MobileDrawer extends StatefulWidget {
 }
 
 class _MobileDrawerState extends State<_MobileDrawer> {
+  GisPalette get _p => GisPalette.of(context);
+
   String _userName = 'Utilisateur';
   String _userEmail = '';
 
@@ -669,7 +719,7 @@ class _MobileDrawerState extends State<_MobileDrawer> {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: th.AppColors.sidebarBg,
+      backgroundColor: _p.sidebarBg,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -695,14 +745,14 @@ class _MobileDrawerState extends State<_MobileDrawer> {
                         Text(
                           'Gis Gestion',
                           style: GoogleFonts.plusJakartaSans(
-                            color: Colors.white,
+                            color: _p.sidebarTextSelected,
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         Text(
                           'Gestion boutique',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11),
+                          style: TextStyle(color: _p.sidebarText, fontSize: 11),
                         ),
                       ],
                     ),
@@ -710,12 +760,19 @@ class _MobileDrawerState extends State<_MobileDrawer> {
                 ],
               ),
             ),
-            const Divider(color: Color(0xFF1A1A1A), height: 1),
+            Divider(color: _p.sidebarBorder, height: 1),
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                 itemCount: widget.destinations.length,
                 itemBuilder: (_, i) => _drawerItem(i),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ThemeToggleButton(style: ThemeToggleStyle.pill, compact: true),
               ),
             ),
             _drawerProfile(),
@@ -731,30 +788,50 @@ class _MobileDrawerState extends State<_MobileDrawer> {
     final selected = widget.currentIndex == index;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 2),
       child: Material(
-        color: selected ? th.AppColors.sidebarActive : Colors.transparent,
-        borderRadius: BorderRadius.circular(6),
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () => widget.onNavigate(index),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          splashColor: _p.accent.withValues(alpha: 0.10),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            decoration: BoxDecoration(
+              color: selected ? _p.sidebarActive : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
             child: Row(
               children: [
-                Icon(
-                  selected ? dest.selectedIcon : dest.icon,
-                  color: selected ? Colors.white : th.AppColors.sidebarText,
-                  size: 24,
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: selected ? 3 : 0,
+                  height: 44,
+                  color: _p.accent,
                 ),
-                const SizedBox(width: 14),
                 Expanded(
-                  child: Text(
-                    dest.label,
-                    style: GoogleFonts.plusJakartaSans(
-                      color: selected ? Colors.white : th.AppColors.sidebarText,
-                      fontSize: 14,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    child: Row(
+                      children: [
+                        Icon(
+                          selected ? dest.selectedIcon : dest.icon,
+                          color: selected ? _p.accent : _p.sidebarText,
+                          size: 22,
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            dest.label,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: selected ? _p.sidebarTextSelected : _p.sidebarText,
+                              fontSize: 14,
+                              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -772,7 +849,7 @@ class _MobileDrawerState extends State<_MobileDrawer> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
       child: Material(
-        color: active ? th.AppColors.sidebarActive : th.AppColors.sidebarHover.withValues(alpha: 0.4),
+        color: active ? _p.sidebarActive : _p.sidebarHover.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(6),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -785,13 +862,13 @@ class _MobileDrawerState extends State<_MobileDrawer> {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [th.AppColors.brandAccent, Color(0xFF5B3FD4)]),
+                    gradient: LinearGradient(colors: [th.AppColors.brandAccent, Color(0xFF5B3FD4)]),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Center(
                     child: Text(
                       _initials(),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ),
                 ),
@@ -802,13 +879,13 @@ class _MobileDrawerState extends State<_MobileDrawer> {
                     children: [
                       Text(
                         _userName,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                        style: TextStyle(color: _p.sidebarTextSelected, fontWeight: FontWeight.w600, fontSize: 13),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         _userEmail,
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 10),
+                        style: TextStyle(color: _p.sidebarText, fontSize: 10),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -817,7 +894,7 @@ class _MobileDrawerState extends State<_MobileDrawer> {
                 ),
                 Icon(
                   Icons.chevron_right_rounded,
-                  color: active ? th.AppColors.brandAccentLight : Colors.white38,
+                  color: active ? th.AppColors.brandAccent : _p.sidebarText,
                 ),
               ],
             ),

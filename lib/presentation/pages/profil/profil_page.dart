@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/gis_palette.dart';
+import '../../../core/theme/gis_theme_ext.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -17,17 +19,8 @@ class ProfilPage extends StatefulWidget {
 }
 
 class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateMixin {
-  static const Color _bg = Color(0xFF050505);
-  static const Color _surface = Color(0xFF0E0E10);
-  static const Color _surfaceHi = Color(0xFF161618);
-  static const Color _border = Color(0xFF222226);
-  static const Color _text = Color(0xFFF5F5F7);
-  static const Color _textMute = Color(0xFF8A8A92);
-  static const Color _textDim = Color(0xFF5C5C63);
-  static const Color _accent = Color(0xFF7C5CFF);
-  static const Color _accentSoft = Color(0xFFB8A4FF);
-  static const Color _success = Color(0xFF22C55E);
-  static const Color _danger = Color(0xFFFF4D6D);
+  GisPalette get _p => GisPalette.of(context);
+
 
   String _userName = 'Utilisateur';
   String _userEmail = '';
@@ -148,9 +141,9 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
     final saved = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: _surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: _border)),
-        title: Text('Modifier mon profil', style: GoogleFonts.plusJakartaSans(color: _text, fontWeight: FontWeight.w700)),
+        backgroundColor: _p.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side:  BorderSide(color: _p.border)),
+        title: Text('Modifier mon profil', style: GoogleFonts.plusJakartaSans(color: _p.text, fontWeight: FontWeight.w700)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -160,11 +153,11 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler', style: TextStyle(color: _textMute))),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child:  Text('Annuler', style: TextStyle(color: _p.textMute))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: _accent),
-            child: const Text('Enregistrer'),
+            style: FilledButton.styleFrom(backgroundColor: _p.accent),
+            child: Text('Enregistrer'),
           ),
         ],
       ),
@@ -182,14 +175,14 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
       HapticFeedback.lightImpact();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profil mis à jour'), backgroundColor: _success),
+          SnackBar(content: Text('Profil mis à jour'), backgroundColor: _p.success),
         );
         await _loadUserData();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: _danger),
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: _p.danger),
         );
       }
     }
@@ -199,16 +192,16 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
     return TextField(
       controller: ctrl,
       keyboardType: keyboard,
-      style: const TextStyle(color: _text),
+      style:  TextStyle(color: _p.text),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: _textMute),
-        prefixIcon: Icon(icon, color: _accentSoft, size: 20),
+        labelStyle:  TextStyle(color: _p.textMute),
+        prefixIcon: Icon(icon, color: _p.accentSoft, size: 20),
         filled: true,
-        fillColor: _surfaceHi,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _border)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _border)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _accent)),
+        fillColor: _p.surfaceHi,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide:  BorderSide(color: _p.border)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide:  BorderSide(color: _p.border)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide:  BorderSide(color: _p.accent)),
       ),
     );
   }
@@ -217,16 +210,16 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
     final confirmer = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: _surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: _border)),
-        title: Text('Déconnexion', style: GoogleFonts.plusJakartaSans(color: _text, fontWeight: FontWeight.w700)),
-        content: const Text('Voulez-vous vraiment vous déconnecter ?', style: TextStyle(color: _textMute)),
+        backgroundColor: _p.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side:  BorderSide(color: _p.border)),
+        title: Text('Déconnexion', style: GoogleFonts.plusJakartaSans(color: _p.text, fontWeight: FontWeight.w700)),
+        content:  Text('Voulez-vous vraiment vous déconnecter ?', style: TextStyle(color: _p.textMute)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler', style: TextStyle(color: _textMute))),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child:  Text('Annuler', style: TextStyle(color: _p.textMute))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: _danger),
-            child: const Text('Déconnexion'),
+            style: FilledButton.styleFrom(backgroundColor: _p.danger),
+            child: Text('Déconnexion'),
           ),
         ],
       ),
@@ -264,14 +257,14 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: _p.bg,
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: _accent, strokeWidth: 2))
+            ?  Center(child: CircularProgressIndicator(color: _p.accent, strokeWidth: 2))
             : RefreshIndicator(
                 onRefresh: _loadUserData,
-                color: _accent,
-                backgroundColor: _surface,
+                color: _p.accent,
+                backgroundColor: _p.surface,
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                   slivers: [
@@ -326,12 +319,12 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [_accent.withValues(alpha: 0.2), _surfaceHi, _surface],
+          colors: [_p.accent.withValues(alpha: 0.2), _p.surfaceHi, _p.surface],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _accent.withValues(alpha: 0.25)),
+        border: Border.all(color: _p.accent.withValues(alpha: 0.25)),
         boxShadow: [
-          BoxShadow(color: _accent.withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 8)),
+          BoxShadow(color: _p.accent.withValues(alpha: 0.12), blurRadius: 24, offset: Offset(0, 8)),
         ],
       ),
       child: Column(
@@ -340,10 +333,10 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
             width: 88,
             height: 88,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [_accent, Color(0xFF5B3FD4)]),
+              gradient: _p.accentLinear(),
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
-                BoxShadow(color: _accent.withValues(alpha: 0.4), blurRadius: 16, offset: const Offset(0, 6)),
+                BoxShadow(color: _p.accent.withValues(alpha: 0.4), blurRadius: 16, offset: const Offset(0, 6)),
               ],
             ),
             child: Center(
@@ -356,10 +349,10 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
           const SizedBox(height: 16),
           Text(
             _userName,
-            style: GoogleFonts.plusJakartaSans(color: _text, fontSize: 22, fontWeight: FontWeight.w800),
+            style: GoogleFonts.plusJakartaSans(color: _p.text, fontSize: 22, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
-          Text(_userEmail, style: const TextStyle(color: _textMute, fontSize: 13)),
+          Text(_userEmail, style:  TextStyle(color: _p.textMute, fontSize: 13)),
         ],
       ),
     );
@@ -367,12 +360,8 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
 
   Widget _panel({required String title, required IconData icon, required Color iconColor, required List<Widget> children}) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _border),
-      ),
+      padding: const EdgeInsets.all(18),
+      decoration: _p.cardDecoration(context, radius: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -380,7 +369,7 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
             children: [
               Icon(icon, color: iconColor, size: 20),
               const SizedBox(width: 8),
-              Text(title, style: GoogleFonts.plusJakartaSans(color: _text, fontSize: 15, fontWeight: FontWeight.w700)),
+              Text(title, style: GoogleFonts.plusJakartaSans(color: _p.text, fontSize: 15, fontWeight: FontWeight.w700)),
             ],
           ),
           const SizedBox(height: 14),
@@ -399,19 +388,19 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: _accent.withValues(alpha: 0.12),
+              color: _p.accent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: _accentSoft, size: 16),
+            child: Icon(icon, color: _p.accentSoft, size: 16),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(color: _textDim, fontSize: 11)),
+                Text(label, style: TextStyle(color: _p.textMute, fontSize: 12, fontWeight: FontWeight.w500)),
                 const SizedBox(height: 2),
-                Text(value, style: const TextStyle(color: _text, fontSize: 14, fontWeight: FontWeight.w600)),
+                Text(value, style:  TextStyle(color: _p.text, fontSize: 14, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -424,7 +413,7 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
     return _panel(
       title: 'Informations personnelles',
       icon: Icons.person_outline,
-      iconColor: _accentSoft,
+      iconColor: _p.accentSoft,
       children: [
         _infoRow(Icons.email_outlined, 'Email', _userEmail),
         if (_userPhone != null && _userPhone!.isNotEmpty)
@@ -440,7 +429,7 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
     return _panel(
       title: 'Ma boutique',
       icon: Icons.store_outlined,
-      iconColor: _success,
+      iconColor: _p.success,
       children: [
         _infoRow(Icons.badge_outlined, 'Nom', _shopName ?? '-'),
         if (_shopOwner != null && _shopOwner!.isNotEmpty)
@@ -461,7 +450,7 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
     return _panel(
       title: 'Abonnement Gis Gestion',
       icon: Icons.workspace_premium_outlined,
-      iconColor: _accentSoft,
+      iconColor: _p.accentSoft,
       children: [
         _infoRow(
           Icons.verified_outlined,
@@ -483,7 +472,7 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
     return _panel(
       title: 'Actions',
       icon: Icons.settings_outlined,
-      iconColor: _textMute,
+      iconColor: _p.textMute,
       children: [
         _actionTile(Icons.edit_outlined, 'Modifier mon profil', _editProfile),
         _actionTile(Icons.refresh_rounded, 'Actualiser les données', _loadUserData),
@@ -519,14 +508,14 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: _accent.withValues(alpha: 0.1),
+                  color: _p.accent.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: _accentSoft, size: 16),
+                child: Icon(icon, color: _p.accentSoft, size: 16),
               ),
               const SizedBox(width: 12),
-              Expanded(child: Text(label, style: const TextStyle(color: _text, fontSize: 14))),
-              const Icon(Icons.chevron_right_rounded, color: _textDim, size: 20),
+              Expanded(child: Text(label, style:  TextStyle(color: _p.text, fontSize: 14))),
+               Icon(Icons.chevron_right_rounded, color: _p.textDim, size: 20),
             ],
           ),
         ),
@@ -540,11 +529,11 @@ class _ProfilPageState extends State<ProfilPage> with SingleTickerProviderStateM
       child: FilledButton.icon(
         onPressed: _deconnecter,
         style: FilledButton.styleFrom(
-          backgroundColor: _danger,
+          backgroundColor: _p.danger,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
-        icon: const Icon(Icons.logout_rounded, color: Colors.white),
+        icon: Icon(Icons.logout_rounded, color: Colors.white),
         label: Text(
           'Se déconnecter',
           style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15),

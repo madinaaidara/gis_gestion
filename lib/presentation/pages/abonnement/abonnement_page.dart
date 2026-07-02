@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_surface.dart';
+import '../../../core/theme/gis_palette.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -18,15 +20,8 @@ class AbonnementPage extends StatefulWidget {
 }
 
 class _AbonnementPageState extends State<AbonnementPage> {
-  static const Color _bg = Color(0xFF050505);
-  static const Color _surface = Color(0xFF0E0E10);
-  static const Color _surfaceHi = Color(0xFF161618);
-  static const Color _border = Color(0xFF222226);
-  static const Color _text = Color(0xFFF5F5F7);
-  static const Color _mute = Color(0xFF8A8A92);
-  static const Color _accent = Color(0xFF7C5CFF);
-  static const Color _success = Color(0xFF22C55E);
-  static const Color _danger = Color(0xFFFF4D6D);
+  GisPalette get _p => GisPalette.of(context);
+
 
   final _codeController = TextEditingController();
   bool _activating = false;
@@ -55,7 +50,7 @@ class _AbonnementPageState extends State<AbonnementPage> {
     if (result.success) {
       HapticFeedback.mediumImpact();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Licence activée avec succès !'), backgroundColor: _surfaceHi),
+        SnackBar(content: Text('Licence activée avec succès !'), backgroundColor: _p.surfaceHi),
       );
       if (widget.blocking) Navigator.of(context).pop(true);
     } else {
@@ -63,7 +58,7 @@ class _AbonnementPageState extends State<AbonnementPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result.errorMessage ?? 'Code invalide ou déjà utilisé'),
-          backgroundColor: _danger,
+          backgroundColor: _p.danger,
         ),
       );
     }
@@ -85,24 +80,24 @@ class _AbonnementPageState extends State<AbonnementPage> {
     return PopScope(
       canPop: !widget.blocking || valid,
       child: Scaffold(
-        backgroundColor: _bg,
+        backgroundColor: _p.bg,
         appBar: AppBar(
-          backgroundColor: _bg,
+          backgroundColor: _p.bg,
           elevation: 0,
           surfaceTintColor: Colors.transparent,
           leading: widget.blocking && !valid
               ? null
               : IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded, color: _text),
+                  icon:  Icon(Icons.arrow_back_rounded, color: _p.text),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
           title: Text(
             'Abonnement',
-            style: GoogleFonts.plusJakartaSans(color: _text, fontWeight: FontWeight.w700),
+            style: GoogleFonts.plusJakartaSans(color: _p.text, fontWeight: FontWeight.w700),
           ),
         ),
         body: aboRepo.isLoading
-            ? const Center(child: CircularProgressIndicator(color: _accent))
+            ?  Center(child: CircularProgressIndicator(color: _p.accent))
             : SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: Column(
@@ -128,18 +123,18 @@ class _AbonnementPageState extends State<AbonnementPage> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _danger.withValues(alpha: 0.12),
+        color: _p.danger.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _danger.withValues(alpha: 0.4)),
+        border: Border.all(color: _p.danger.withValues(alpha: 0.4)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.lock_clock_rounded, color: _danger),
+           Icon(Icons.lock_clock_rounded, color: _p.danger),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Votre abonnement a expiré. Activez une licence pour continuer.',
-              style: GoogleFonts.plusJakartaSans(color: _text, fontSize: 13),
+              style: GoogleFonts.plusJakartaSans(color: _p.text, fontSize: 13),
             ),
           ),
         ],
@@ -153,13 +148,13 @@ class _AbonnementPageState extends State<AbonnementPage> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: valid
-              ? [_accent.withValues(alpha: 0.25), _surfaceHi]
-              : [_danger.withValues(alpha: 0.15), _surfaceHi],
+              ? [_p.accent.withValues(alpha: 0.25), _p.surfaceHi]
+              : [_p.danger.withValues(alpha: 0.15), _p.surfaceHi],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _border),
+        border: Border.all(color: _p.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,12 +162,12 @@ class _AbonnementPageState extends State<AbonnementPage> {
           Row(
             children: [
               Icon(valid ? Icons.verified_rounded : Icons.warning_amber_rounded,
-                  color: valid ? _success : _danger),
+                  color: valid ? _p.success : _p.danger),
               const SizedBox(width: 8),
               Text(
                 valid ? 'Licence active' : 'Licence expirée',
                 style: GoogleFonts.plusJakartaSans(
-                  color: _text,
+                  color: _p.text,
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
@@ -181,14 +176,14 @@ class _AbonnementPageState extends State<AbonnementPage> {
           ),
           const SizedBox(height: 12),
           if (abo != null) ...[
-            Text('Plan : ${abo.planLabel}', style: const TextStyle(color: _mute, fontSize: 14)),
+            Text('Plan : ${abo.planLabel}', style:  TextStyle(color: _p.textMute, fontSize: 14)),
             const SizedBox(height: 4),
             Text(
               valid ? '${abo.daysRemaining} jour(s) restant(s)' : 'Renouvelez pour débloquer l\'accès',
-              style: TextStyle(color: valid ? _success : _danger, fontWeight: FontWeight.w600),
+              style: TextStyle(color: valid ? _p.success : _p.danger, fontWeight: FontWeight.w600),
             ),
           ] else
-            const Text('Aucun abonnement trouvé', style: TextStyle(color: _mute)),
+             Text('Aucun abonnement trouvé', style: TextStyle(color: _p.textMute)),
         ],
       ),
     );
@@ -198,7 +193,7 @@ class _AbonnementPageState extends State<AbonnementPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Nos offres', style: GoogleFonts.plusJakartaSans(color: _text, fontWeight: FontWeight.w700, fontSize: 16)),
+        Text('Nos offres', style: GoogleFonts.plusJakartaSans(color: _p.text, fontWeight: FontWeight.w700, fontSize: 16)),
         const SizedBox(height: 12),
         _planTile('Essai', '30 jours gratuits à l\'inscription', '0 FCFA', Icons.star_outline_rounded),
         _planTile('Pro', 'Caisse, stock, stats illimités', '9 900 FCFA/mois', Icons.workspace_premium_outlined, highlight: true),
@@ -212,24 +207,24 @@ class _AbonnementPageState extends State<AbonnementPage> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: highlight ? _accent.withValues(alpha: 0.12) : _surface,
+        color: highlight ? _p.accent.withValues(alpha: 0.12) : _p.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: highlight ? _accent.withValues(alpha: 0.4) : _border),
+        border: Border.all(color: highlight ? _p.accent.withValues(alpha: 0.4) : _p.border),
       ),
       child: Row(
         children: [
-          Icon(icon, color: highlight ? _accent : _mute),
+          Icon(icon, color: highlight ? _p.accent : _p.textMute),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(color: _text, fontWeight: FontWeight.w700, fontSize: 15)),
-                Text(desc, style: const TextStyle(color: _mute, fontSize: 12)),
+                Text(title, style:  TextStyle(color: _p.text, fontWeight: FontWeight.w700, fontSize: 15)),
+                Text(desc, style:  TextStyle(color: _p.textMute, fontSize: 12)),
               ],
             ),
           ),
-          Text(price, style: TextStyle(color: highlight ? _accent : _mute, fontSize: 11, fontWeight: FontWeight.w600)),
+          Text(price, style: TextStyle(color: highlight ? _p.accent : _p.textMute, fontSize: 11, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -238,27 +233,27 @@ class _AbonnementPageState extends State<AbonnementPage> {
   Widget _buildActivationCard() {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _border)),
+      decoration: BoxDecoration(color: _p.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _p.border)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Activer votre code', style: GoogleFonts.plusJakartaSans(color: _text, fontWeight: FontWeight.w700)),
+          Text('Activer votre code', style: GoogleFonts.plusJakartaSans(color: _p.text, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Chaque code ne fonctionne qu\'une seule fois. '
             'Recevez le vôtre après paiement (Wave, Orange Money, virement).',
-            style: TextStyle(color: _mute, fontSize: 11, height: 1.4),
+            style: TextStyle(color: _p.textMute, fontSize: 11, height: 1.4),
           ),
           const SizedBox(height: 14),
           TextField(
             controller: _codeController,
             textCapitalization: TextCapitalization.characters,
-            style: const TextStyle(color: _text, letterSpacing: 1.2),
+            style:  TextStyle(color: _p.text, letterSpacing: 1.2),
             decoration: InputDecoration(
               hintText: 'GIS-XXXX-XXXX',
-              hintStyle: TextStyle(color: _mute.withValues(alpha: 0.5)),
+              hintStyle: TextStyle(color: _p.textMute.withValues(alpha: 0.5)),
               filled: true,
-              fillColor: _surfaceHi,
+              fillColor: _p.surfaceHi,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
             ),
           ),
@@ -266,7 +261,7 @@ class _AbonnementPageState extends State<AbonnementPage> {
           FilledButton(
             onPressed: _activating ? null : _activate,
             style: FilledButton.styleFrom(
-              backgroundColor: _accent,
+              backgroundColor: _p.accent,
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
@@ -283,12 +278,12 @@ class _AbonnementPageState extends State<AbonnementPage> {
     return OutlinedButton.icon(
       onPressed: _contactSupport,
       style: OutlinedButton.styleFrom(
-        foregroundColor: _text,
-        side: const BorderSide(color: _border),
+        foregroundColor: _p.text,
+        side:  BorderSide(color: _p.border),
         padding: const EdgeInsets.symmetric(vertical: 14),
       ),
-      icon: const Icon(Icons.mail_outline_rounded, size: 18),
-      label: const Text('Contacter le support commercial'),
+      icon: Icon(Icons.mail_outline_rounded, size: 18),
+      label: Text('Contacter le support commercial'),
     );
   }
 }

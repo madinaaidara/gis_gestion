@@ -266,18 +266,52 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   Future<void> selectDay(String shopId, DateTime day) async {
-    _selectedDay = DateTime(day.year, day.month, day.day);
+    final normalized = DateTime(day.year, day.month, day.day);
+    _selectedDay = normalized;
     _loadingDayDetail = true;
+    _selectedDayVentes = [];
     notifyListeners();
 
     try {
-      _selectedDayVentes = await _statsRepository.getVentesDuJour(shopId, _selectedDay!);
+      if (_focusedMonth.year != normalized.year || _focusedMonth.month != normalized.month) {
+        await loadCalendarMonth(shopId, normalized);
+      }
+      _selectedDayVentes = await _statsRepository.getVentesDuJour(shopId, normalized);
     } catch (e) {
       _selectedDayVentes = [];
     }
 
     _loadingDayDetail = false;
     notifyListeners();
+  }
+
+  void clearSelectedDay() {
+    _selectedDay = null;
+    _selectedDayVentes = [];
+    _loadingDayDetail = false;
+    notifyListeners();
+  }
+
+  /// Totaux recalculés depuis les ventes réelles du jour sélectionné.
+  Map<String, dynamic> get selectedDaySummary {
+    if (_selectedDay == null || _selectedDayVentes.isEmpty) {
+      final cached = _selectedDay != null ? dayData(_selectedDay!) : null;
+      if (cached != null) {
+        return {
+          'ca': (cached['ca'] as num?)?.toDouble() ?? 0.0,
+          'ventes': (cached['ventes'] as num?)?.toInt() ?? 0,
+          'benefice': (cached['benefice'] as num?)?.toDouble() ?? 0.0,
+        };
+      }
+      return {'ca': 0.0, 'ventes': 0, 'benefice': 0.0};
+    }
+    var ca = 0.0;
+    var benefice = 0.0;
+    for (final v in _selectedDayVentes) {
+      ca += (v['total'] as num?)?.toDouble() ?? 0.0;
+      benefice += (v['benefice_reel'] as num?)?.toDouble() ?? 0.0;
+    }
+    return {'ca': ca, 'ventes': _selectedDayVentes.length, 'benefice': benefice};
   }
 
   Future<void> _loadDashboardData(String shopId) async {

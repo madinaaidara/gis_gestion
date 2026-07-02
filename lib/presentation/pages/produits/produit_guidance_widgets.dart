@@ -1,26 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/theme/app_surface.dart';
+import '../../../core/theme/gis_palette.dart';
+import '../../../core/theme/gis_theme_ext.dart';
 import '../../../core/utils/packaging_utils.dart';
 import '../../../data/models/produit_model.dart';
 
 /// Couleurs & textes simples pour la page Produits (accessible, sans jargon).
 class ProduitUi {
-  static const Color bg = Color(0xFF050505);
-  static const Color surface = Color(0xFF0E0E10);
-  static const Color surfaceHi = Color(0xFF161618);
-  static const Color border = Color(0xFF222226);
-  static const Color text = Color(0xFFF5F5F7);
-  static const Color textMute = Color(0xFF8A8A92);
-  static const Color textDim = Color(0xFF5C5C63);
-  static const Color accent = Color(0xFF7C5CFF);
-  static const Color accentSoft = Color(0xFFB8A4FF);
-  static const Color achat = Color(0xFFF59E0B);
-  static const Color vente = Color(0xFF22C55E);
-  static const Color stock = Color(0xFF3B82F6);
-  static const Color danger = Color(0xFFFF4D6D);
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color success = Color(0xFF22C55E);
+  static Color get bg => AppSurface.bg;
+  static Color get surface => AppSurface.surface;
+  static Color get surfaceHi => AppSurface.surfaceHi;
+  static Color get border => AppSurface.border;
+  static Color get text => AppSurface.text;
+  static Color get textMute => AppSurface.textMute;
+  static Color get textDim => AppSurface.textDim;
+  static Color get accent => AppSurface.accent;
+  static Color get accentSoft => AppSurface.accentSoft;
+  static Color get achat => AppSurface.warning;
+  static Color get vente => AppSurface.success;
+  static Color get stock => AppSurface.info;
+  static Color get danger => AppSurface.danger;
+  static Color get warning => AppSurface.warning;
+  static Color get success => AppSurface.success;
 
   static String stockLabelSimple(ProduitModel p) {
     switch (PackagingUtils.stockLevel(p)) {
@@ -33,14 +36,15 @@ class ProduitUi {
     }
   }
 
-  static Color stockColor(ProduitModel p) {
-    switch (PackagingUtils.stockLevel(p)) {
+  static Color stockColor(BuildContext context, ProduitModel product) {
+    final palette = GisPalette.of(context);
+    switch (PackagingUtils.stockLevel(product)) {
       case StockLevel.rupture:
-        return danger;
+        return palette.danger;
       case StockLevel.faible:
-        return warning;
+        return palette.warning;
       case StockLevel.ok:
-        return success;
+        return palette.success;
     }
   }
 
@@ -68,11 +72,12 @@ class ProduitHelpTip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = GisPalette.of(context).text;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withValues(alpha: 0.28)),
       ),
@@ -88,10 +93,10 @@ class ProduitHelpTip extends StatelessWidget {
                 if (title.isNotEmpty)
                   Text(
                     title,
-                    style: GoogleFonts.plusJakartaSans(color: color, fontSize: 12, fontWeight: FontWeight.w700),
+                    style: GoogleFonts.plusJakartaSans(color: color, fontSize: 13, fontWeight: FontWeight.w700),
                   ),
                 if (title.isNotEmpty) const SizedBox(height: 4),
-                Text(message, style: const TextStyle(color: ProduitUi.text, fontSize: 12, height: 1.4)),
+                Text(message, style: TextStyle(color: text, fontSize: 12, height: 1.45, fontWeight: FontWeight.w500)),
               ],
             ),
           ),
@@ -104,23 +109,24 @@ class ProduitHelpTip extends StatelessWidget {
 class ProduitStockLegend extends StatelessWidget {
   const ProduitStockLegend({super.key});
 
-  Widget _dot(String label, Color c) => Row(
+  Widget _dot(BuildContext context, String label, Color c) => Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(width: 8, height: 8, decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
           const SizedBox(width: 6),
-          Text(label, style: const TextStyle(color: ProduitUi.textDim, fontSize: 11)),
+          Text(label, style: TextStyle(color: GisPalette.of(context).textMute, fontSize: 12, fontWeight: FontWeight.w500)),
         ],
       );
 
   @override
   Widget build(BuildContext context) {
+    final p = GisPalette.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
       child: Wrap(spacing: 16, runSpacing: 6, children: [
-        _dot('En stock', ProduitUi.success),
-        _dot('Bientôt fini', ProduitUi.warning),
-        _dot('Rupture', ProduitUi.danger),
+        _dot(context, 'En stock', p.success),
+        _dot(context, 'Bientôt fini', p.warning),
+        _dot(context, 'Rupture', p.danger),
       ]),
     );
   }
@@ -133,7 +139,7 @@ class ProduitStockBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = ProduitUi.stockColor(product);
+    final c = ProduitUi.stockColor(context, product);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -143,7 +149,7 @@ class ProduitStockBadge extends StatelessWidget {
       ),
       child: Text(
         ProduitUi.stockLabelSimple(product),
-        style: TextStyle(color: c, fontSize: 10, fontWeight: FontWeight.w700),
+        style: TextStyle(color: c, fontSize: 11, fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -182,8 +188,8 @@ class ProduitInfoTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600)),
-                Text(value, style: const TextStyle(color: ProduitUi.text, fontSize: 14, fontWeight: FontWeight.w700)),
+                Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+                Text(value, style: TextStyle(color: GisPalette.of(context).text, fontSize: 14, fontWeight: FontWeight.w700)),
               ],
             ),
           ),
@@ -198,32 +204,41 @@ class ProduitWelcomeStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = GisPalette.of(context);
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [ProduitUi.accent.withValues(alpha: 0.18), ProduitUi.surfaceHi]),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: ProduitUi.accent.withValues(alpha: 0.25)),
-      ),
+      decoration: p.isDark(context)
+          ? BoxDecoration(
+              gradient: LinearGradient(colors: [p.accent.withValues(alpha: 0.20), p.surfaceHi]),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: p.accent.withValues(alpha: 0.28)),
+            )
+          : p.cardDecoration(context, radius: 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: ProduitUi.accent.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.storefront_rounded, color: ProduitUi.accentSoft, size: 20),
+            decoration: BoxDecoration(
+              gradient: p.accentLinear(),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.storefront_rounded, color: Colors.white, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Votre liste de produits', style: GoogleFonts.plusJakartaSans(color: ProduitUi.text, fontSize: 14, fontWeight: FontWeight.w800)),
+                Text(
+                  'Votre liste de produits',
+                  style: GoogleFonts.plusJakartaSans(color: p.text, fontSize: 14, fontWeight: FontWeight.w800),
+                ),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'Touchez un produit pour voir les détails. Vert = OK · Orange = bientôt fini · Rouge = plus rien.',
-                  style: TextStyle(color: ProduitUi.textMute, fontSize: 12, height: 1.35),
+                  style: TextStyle(color: p.textMute, fontSize: 12, height: 1.4, fontWeight: FontWeight.w500),
                 ),
               ],
             ),

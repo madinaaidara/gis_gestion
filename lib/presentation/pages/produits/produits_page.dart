@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_surface.dart';
+import '../../../core/theme/gis_palette.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +11,7 @@ import '../../../data/models/produit_model.dart';
 import '../../../data/repositories/products_repository.dart';
 import '../../../data/repositories/shops_repository.dart';
 import '../../../core/utils/packaging_utils.dart';
+import '../../widgets/gis_ui_kit.dart';
 import 'produit_form_panel.dart';
 import 'produit_guidance_widgets.dart';
 
@@ -21,15 +24,8 @@ class ProduitsPage extends StatefulWidget {
 }
 
 class _ProduitsPageState extends State<ProduitsPage> {
-  static const Color _bg = Color(0xFF050505);
-  static const Color _surface = Color(0xFF0E0E10);
-  static const Color _surfaceHi = Color(0xFF161618);
-  static const Color _border = Color(0xFF222226);
-  static const Color _text = Color(0xFFF5F5F7);
-  static const Color _textMute = Color(0xFF8A8A92);
-  static const Color _textDim = Color(0xFF5C5C63);
-  static const Color _accent = Color(0xFF7C5CFF);
-  static const Color _danger = Color(0xFFFF4D6D);
+  GisPalette get _p => GisPalette.of(context);
+
 
   final rechercheController = TextEditingController();
   bool _filterGrossisteOnly = false;
@@ -96,8 +92,8 @@ class _ProduitsPageState extends State<ProduitsPage> {
   void _snack(String msg, {bool success = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg, style: const TextStyle(fontSize: 13)),
-        backgroundColor: _surface,
+        content: Text(msg, style: TextStyle(fontSize: 13)),
+        backgroundColor: _p.surface,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
@@ -118,19 +114,19 @@ class _ProduitsPageState extends State<ProduitsPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: _surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: _border)),
-        title: const Text('Supprimer ce produit ?', style: TextStyle(color: _text, fontSize: 16)),
-        content: Text('« ${p.nom} » sera retiré du catalogue.', style: const TextStyle(color: _textMute, fontSize: 13)),
+        backgroundColor: _p.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side:  BorderSide(color: _p.border)),
+        title:  Text('Supprimer ce produit ?', style: TextStyle(color: _p.text, fontSize: 16)),
+        content: Text('« ${p.nom} » sera retiré du catalogue.', style:  TextStyle(color: _p.textMute, fontSize: 13)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler', style: TextStyle(color: _textMute))),
+          TextButton(onPressed: () => Navigator.pop(ctx), child:  Text('Annuler', style: TextStyle(color: _p.textMute))),
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
               if (p.id != null) _deleteProduct(p.id!);
             },
-            style: FilledButton.styleFrom(backgroundColor: _danger),
-            child: const Text('Supprimer'),
+            style: FilledButton.styleFrom(backgroundColor: _p.danger),
+            child: Text('Supprimer'),
           ),
         ],
       ),
@@ -144,19 +140,19 @@ class _ProduitsPageState extends State<ProduitsPage> {
       builder: (ctx) => Container(
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _border)),
+        decoration: BoxDecoration(color: _p.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _p.border)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Afficher seulement…', style: GoogleFonts.plusJakartaSans(color: _text, fontWeight: FontWeight.w800, fontSize: 16)),
+            Text('Afficher seulement…', style: GoogleFonts.plusJakartaSans(color: _p.text, fontWeight: FontWeight.w800, fontSize: 16)),
             const SizedBox(height: 4),
-            const Text('Choisissez ce que vous voulez voir dans la liste.', style: TextStyle(color: _textDim, fontSize: 12)),
+             Text('Choisissez ce que vous voulez voir dans la liste.', style: TextStyle(color: _p.textDim, fontSize: 12)),
             const SizedBox(height: 12),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Produits achetés chez le grossiste', style: TextStyle(color: _text, fontSize: 13)),
-              subtitle: const Text('Cartons, sacs, gros conditionnements', style: TextStyle(color: _textDim, fontSize: 11)),
+              title:  Text('Produits achetés chez le grossiste', style: TextStyle(color: _p.text, fontSize: 13)),
+              subtitle:  Text('Cartons, sacs, gros conditionnements', style: TextStyle(color: _p.textDim, fontSize: 11)),
               value: _filterGrossisteOnly,
               activeTrackColor: ProduitUi.accent.withValues(alpha: 0.5),
               activeThumbColor: ProduitUi.accent,
@@ -167,8 +163,8 @@ class _ProduitsPageState extends State<ProduitsPage> {
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Produits bientôt finis', style: TextStyle(color: _text, fontSize: 13)),
-              subtitle: const Text('Stock faible — pensez à racheter', style: TextStyle(color: _textDim, fontSize: 11)),
+              title:  Text('Produits bientôt finis', style: TextStyle(color: _p.text, fontSize: 13)),
+              subtitle:  Text('Stock faible — pensez à racheter', style: TextStyle(color: _p.textDim, fontSize: 11)),
               value: vm.stockFaibleFilterOnly,
               activeTrackColor: ProduitUi.warning.withValues(alpha: 0.5),
               activeThumbColor: ProduitUi.warning,
@@ -199,7 +195,7 @@ class _ProduitsPageState extends State<ProduitsPage> {
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.all(20),
         constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.85),
-        decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _border)),
+        decoration: BoxDecoration(color: _p.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _p.border)),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -212,18 +208,18 @@ class _ProduitsPageState extends State<ProduitsPage> {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(color: ProduitUi.accent.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
-                    child: const Icon(Icons.inventory_2_outlined, color: ProduitUi.accentSoft, size: 22),
+                    child: Icon(Icons.inventory_2_outlined, color: ProduitUi.accentSoft, size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(p.nom, style: GoogleFonts.plusJakartaSans(color: _text, fontSize: 18, fontWeight: FontWeight.w800)),
+                        Text(p.nom, style: GoogleFonts.plusJakartaSans(color: _p.text, fontSize: 18, fontWeight: FontWeight.w800)),
                         if (p.categoryNom?.isNotEmpty == true)
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
-                            child: Text(p.categoryNom!, style: const TextStyle(color: _textDim, fontSize: 12)),
+                            child: Text(p.categoryNom!, style:  TextStyle(color: _p.textDim, fontSize: 12)),
                           ),
                       ],
                     ),
@@ -254,14 +250,14 @@ class _ProduitsPageState extends State<ProduitsPage> {
               ProduitInfoTile(
                 label: 'Il en reste',
                 value: stockText,
-                color: ProduitUi.stockColor(p),
+                color: ProduitUi.stockColor(context, p),
                 icon: Icons.warehouse_outlined,
               ),
               if (p.fournisseur?.isNotEmpty == true)
                 ProduitInfoTile(
                   label: 'Fournisseur',
                   value: p.fournisseur!,
-                  color: _textMute,
+                  color: _p.textMute,
                   icon: Icons.local_shipping_outlined,
                 ),
               const SizedBox(height: 12),
@@ -273,9 +269,9 @@ class _ProduitsPageState extends State<ProduitsPage> {
                         Navigator.pop(context);
                         _openForm(product: p);
                       },
-                      icon: const Icon(Icons.edit_outlined, size: 18),
-                      label: const Text('Modifier'),
-                      style: OutlinedButton.styleFrom(foregroundColor: _text, side: const BorderSide(color: _border)),
+                      icon: Icon(Icons.edit_outlined, size: 18),
+                      label: Text('Modifier'),
+                      style: OutlinedButton.styleFrom(foregroundColor: _p.text, side:  BorderSide(color: _p.border)),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -284,8 +280,8 @@ class _ProduitsPageState extends State<ProduitsPage> {
                       Navigator.pop(context);
                       _confirmDelete(p);
                     },
-                    style: IconButton.styleFrom(backgroundColor: _danger.withValues(alpha: 0.2), foregroundColor: _danger),
-                    icon: const Icon(Icons.delete_outline_rounded),
+                    style: IconButton.styleFrom(backgroundColor: _p.danger.withValues(alpha: 0.2), foregroundColor: _p.danger),
+                    icon: Icon(Icons.delete_outline_rounded),
                   ),
                 ],
               ),
@@ -302,16 +298,16 @@ class _ProduitsPageState extends State<ProduitsPage> {
     final isLoading = context.watch<ProductsViewModel>().isLoading;
 
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: _p.bg,
       floatingActionButton: isWide
           ? null
           : FloatingActionButton(
               onPressed: () => _openForm(),
-              backgroundColor: _accent,
-              child: const Icon(Icons.add_rounded, color: Colors.white),
+              backgroundColor: _p.accent,
+              child: Icon(Icons.add_rounded, color: Colors.white),
             ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator(color: _accent))
+          ?  Center(child: CircularProgressIndicator(color: _p.accent))
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -332,25 +328,11 @@ class _ProduitsPageState extends State<ProduitsPage> {
       child: Row(
         children: [
           Expanded(
-            child: Container(
-              height: 42,
-              decoration: BoxDecoration(
-                color: _surface,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: _border),
-              ),
-              child: TextField(
-                controller: rechercheController,
-                onChanged: (v) => context.read<ProductsViewModel>().updateSearchQuery(v.trim()),
-                style: const TextStyle(color: _text, fontSize: 14),
-                decoration: const InputDecoration(
-                  hintText: 'Chercher un produit…',
-                  hintStyle: TextStyle(color: _textDim, fontSize: 13),
-                  border: InputBorder.none,
-                  prefixIcon: Icon(Icons.search_rounded, size: 20, color: _textMute),
-                  contentPadding: EdgeInsets.symmetric(vertical: 10),
-                ),
-              ),
+            child: GisSearchField(
+              controller: rechercheController,
+              hint: 'Chercher un produit…',
+              padding: EdgeInsets.zero,
+              onChanged: (v) => context.read<ProductsViewModel>().updateSearchQuery(v.trim()),
             ),
           ),
           const SizedBox(width: 10),
@@ -362,7 +344,7 @@ class _ProduitsPageState extends State<ProduitsPage> {
                 icon: Badge(
                   isLabelVisible: hasFilter,
                   smallSize: 8,
-                  child: const Icon(Icons.tune_rounded, color: _textMute),
+                  child:  Icon(Icons.tune_rounded, color: _p.textMute),
                 ),
                 tooltip: 'Filtres',
               );
@@ -372,8 +354,8 @@ class _ProduitsPageState extends State<ProduitsPage> {
             const SizedBox(width: 4),
             FilledButton.icon(
               onPressed: () => _openForm(),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Ajouter'),
+              icon: Icon(Icons.add_rounded, size: 18),
+              label: Text('Ajouter'),
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.black,
@@ -407,16 +389,16 @@ class _ProduitsPageState extends State<ProduitsPage> {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: FilterChip(
-        label: Text(label, style: TextStyle(fontSize: 12, color: active ? Colors.black : _textMute, fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
+        label: Text(label, style: TextStyle(fontSize: 12, color: active ? Colors.black : _p.textMute, fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
         selected: active,
         onSelected: (_) {
           HapticFeedback.selectionClick();
           onTap();
         },
-        backgroundColor: _surfaceHi,
+        backgroundColor: _p.surfaceHi,
         selectedColor: Colors.white,
         showCheckmark: false,
-        side: BorderSide(color: active ? Colors.white : _border),
+        side: BorderSide(color: active ? Colors.white : _p.border),
         padding: EdgeInsets.zero,
         visualDensity: VisualDensity.compact,
       ),
@@ -433,18 +415,18 @@ class _ProduitsPageState extends State<ProduitsPage> {
             children: [
               Text(
                 '${vm.totalCatalog} produit${vm.totalCatalog > 1 ? 's' : ''}',
-                style: const TextStyle(color: _text, fontSize: 12, fontWeight: FontWeight.w600),
+                style:  TextStyle(color: _p.text, fontSize: 12, fontWeight: FontWeight.w600),
               ),
-              Text(' · ', style: TextStyle(color: _textDim.withValues(alpha: 0.6))),
+              Text(' · ', style: TextStyle(color: _p.textDim.withValues(alpha: 0.6))),
               Text(
                 '${vm.enStockCatalog} en stock',
-                style: const TextStyle(color: ProduitUi.success, fontSize: 12, fontWeight: FontWeight.w600),
+                style: TextStyle(color: ProduitUi.success, fontSize: 12, fontWeight: FontWeight.w600),
               ),
               if (alerts > 0) ...[
-                Text(' · ', style: TextStyle(color: _textDim.withValues(alpha: 0.6))),
+                Text(' · ', style: TextStyle(color: _p.textDim.withValues(alpha: 0.6))),
                 Text(
                   '$alerts à surveiller',
-                  style: const TextStyle(color: ProduitUi.warning, fontSize: 12, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: ProduitUi.warning, fontSize: 12, fontWeight: FontWeight.w600),
                 ),
               ],
             ],
@@ -475,12 +457,12 @@ class _ProduitsPageState extends State<ProduitsPage> {
                 ],
               ),
             ),
-            const Divider(height: 1, color: _border),
+             Divider(height: 1, color: _p.border),
             Expanded(
               child: ListView.separated(
                 padding: const EdgeInsets.only(bottom: 24),
                 itemCount: items.length,
-                separatorBuilder: (_, __) => const Divider(height: 1, color: _border, indent: 24, endIndent: 24),
+                separatorBuilder: (_, __) =>  Divider(height: 1, color: _p.border, indent: 24, endIndent: 24),
                 itemBuilder: (_, i) => _desktopRow(items[i], i + 1),
               ),
             ),
@@ -491,7 +473,7 @@ class _ProduitsPageState extends State<ProduitsPage> {
   }
 
   Widget _colHeader(String t, {int flex = 1, double? width}) {
-    final child = Text(t.toUpperCase(), style: const TextStyle(color: _textDim, fontSize: 10, letterSpacing: 0.8, fontWeight: FontWeight.w600));
+    final child = Text(t.toUpperCase(), style:  TextStyle(color: _p.textDim, fontSize: 10, letterSpacing: 0.8, fontWeight: FontWeight.w600));
     if (width != null) return SizedBox(width: width, child: child);
     return Expanded(flex: flex, child: child);
   }
@@ -501,14 +483,14 @@ class _ProduitsPageState extends State<ProduitsPage> {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => _showDetails(p),
-        hoverColor: _surfaceHi,
+        hoverColor: _p.surfaceHi,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           child: Row(
             children: [
               SizedBox(
                 width: 36,
-                child: Text('$index', style: const TextStyle(color: _textDim, fontSize: 13)),
+                child: Text('$index', style:  TextStyle(color: _p.textDim, fontSize: 13)),
               ),
               Expanded(
                 flex: 4,
@@ -518,21 +500,21 @@ class _ProduitsPageState extends State<ProduitsPage> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: ProduitUi.stockColor(p).withValues(alpha: 0.12),
+                        color: ProduitUi.stockColor(context, p).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: ProduitUi.stockColor(p).withValues(alpha: 0.25)),
+                        border: Border.all(color: ProduitUi.stockColor(context, p).withValues(alpha: 0.25)),
                       ),
-                      child: Icon(Icons.inventory_2_outlined, size: 18, color: ProduitUi.stockColor(p)),
+                      child: Icon(Icons.inventory_2_outlined, size: 18, color: ProduitUi.stockColor(context, p)),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(p.nom, style: const TextStyle(color: _text, fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Text(p.nom, style:  TextStyle(color: _p.text, fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
                           Text(
                             [if (p.categoryNom?.isNotEmpty == true) p.categoryNom!, p.uniteVente ?? 'pièce'].join(' · '),
-                            style: const TextStyle(color: _textDim, fontSize: 11),
+                            style:  TextStyle(color: _p.textDim, fontSize: 11),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -546,7 +528,7 @@ class _ProduitsPageState extends State<ProduitsPage> {
                 flex: 2,
                 child: Text(
                   '${p.prixVenteUnitaire.toStringAsFixed(0)} ${devise ?? 'FCFA'}',
-                  style: const TextStyle(color: ProduitUi.vente, fontSize: 13, fontWeight: FontWeight.w700),
+                  style: TextStyle(color: ProduitUi.vente, fontSize: 13, fontWeight: FontWeight.w700),
                 ),
               ),
               Expanded(
@@ -558,7 +540,7 @@ class _ProduitsPageState extends State<ProduitsPage> {
                     Expanded(
                       child: Text(
                         PackagingUtils.formatStock(p),
-                        style: TextStyle(color: ProduitUi.stockColor(p), fontSize: 11, fontWeight: FontWeight.w500),
+                        style: TextStyle(color: ProduitUi.stockColor(context, p), fontSize: 11, fontWeight: FontWeight.w500),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -571,15 +553,15 @@ class _ProduitsPageState extends State<ProduitsPage> {
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_horiz_rounded, color: _textMute, size: 20),
-                    color: _surfaceHi,
+                    icon:  Icon(Icons.more_horiz_rounded, color: _p.textMute, size: 20),
+                    color: _p.surfaceHi,
                     onSelected: (a) {
                       if (a == 'edit') _openForm(product: p);
                       if (a == 'delete') _confirmDelete(p);
                     },
                     itemBuilder: (_) => [
                       const PopupMenuItem(value: 'edit', child: Text('Modifier')),
-                      const PopupMenuItem(value: 'delete', child: Text('Supprimer', style: TextStyle(color: _danger))),
+                       PopupMenuItem(value: 'delete', child: Text('Supprimer', style: TextStyle(color: _p.danger))),
                     ],
                   ),
                 ),
@@ -604,7 +586,7 @@ class _ProduitsPageState extends State<ProduitsPage> {
           separatorBuilder: (_, __) => const SizedBox(height: 2),
           itemBuilder: (_, i) {
             final p = items[i];
-            final stockColor = ProduitUi.stockColor(p);
+            final stockColor = ProduitUi.stockColor(context, p);
 
             return Material(
               color: Colors.transparent,
@@ -630,11 +612,11 @@ class _ProduitsPageState extends State<ProduitsPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(p.nom, style: const TextStyle(color: _text, fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Text(p.nom, style:  TextStyle(color: _p.text, fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
                             const SizedBox(height: 2),
                             Text(
                               '${p.prixVenteUnitaire.toStringAsFixed(0)} ${devise ?? 'FCFA'} / ${p.uniteVente ?? 'pièce'}',
-                              style: const TextStyle(color: ProduitUi.vente, fontSize: 12, fontWeight: FontWeight.w600),
+                              style: TextStyle(color: ProduitUi.vente, fontSize: 12, fontWeight: FontWeight.w600),
                             ),
                           ],
                         ),
@@ -674,15 +656,15 @@ class _ProduitsPageState extends State<ProduitsPage> {
                 color: ProduitUi.accent.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.storefront_rounded, size: 40, color: ProduitUi.accentSoft),
+              child: Icon(Icons.storefront_rounded, size: 40, color: ProduitUi.accentSoft),
             ),
             const SizedBox(height: 20),
-            Text('Commencez ici', style: GoogleFonts.plusJakartaSans(color: _text, fontSize: 18, fontWeight: FontWeight.w800)),
+            Text('Commencez ici', style: GoogleFonts.plusJakartaSans(color: _p.text, fontSize: 18, fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
-            const Text(
+             Text(
               'Ajoutez ce que vous vendez dans votre boutique.\nL\'application calcule le reste pour vous.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: _textMute, fontSize: 13, height: 1.45),
+              style: TextStyle(color: _p.textMute, fontSize: 13, height: 1.45),
             ),
             const SizedBox(height: 24),
             _emptyStep('1', 'Le produit', 'Nom, ex. « Riz 25 kg »', ProduitUi.accent),
@@ -691,8 +673,8 @@ class _ProduitsPageState extends State<ProduitsPage> {
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: () => _openForm(),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Ajouter mon premier produit'),
+              icon: Icon(Icons.add_rounded),
+              label: Text('Ajouter mon premier produit'),
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.black,
@@ -730,7 +712,7 @@ class _ProduitsPageState extends State<ProduitsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w700)),
-                Text(sub, style: const TextStyle(color: _textDim, fontSize: 11)),
+                Text(sub, style:  TextStyle(color: _p.textDim, fontSize: 11)),
               ],
             ),
           ),
@@ -744,11 +726,11 @@ class _ProduitsPageState extends State<ProduitsPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.search_off_rounded, size: 40, color: _textDim),
+          Icon(Icons.search_off_rounded, size: 40, color: _p.textDim),
           const SizedBox(height: 12),
-          const Text('Rien trouvé', style: TextStyle(color: _textMute, fontSize: 14, fontWeight: FontWeight.w600)),
+           Text('Rien trouvé', style: TextStyle(color: _p.textMute, fontSize: 14, fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          const Text('Essayez un autre mot ou enlevez les filtres', style: TextStyle(color: _textDim, fontSize: 12)),
+           Text('Essayez un autre mot ou enlevez les filtres', style: TextStyle(color: _p.textDim, fontSize: 12)),
         ],
       ),
     );

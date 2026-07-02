@@ -272,6 +272,242 @@ class LineChartWidget extends StatelessWidget {
   }
 }
 
+/// Courbe spline avec zone remplie — style « Évolution de mes demandes ».
+class EvolutionAreaChartWidget extends StatelessWidget {
+  final List<Map<String, dynamic>> data;
+  final String title;
+  final String subtitle;
+  final StatsChartTheme theme;
+  final double height;
+  final Widget? trailing;
+  final String? trendLabel;
+
+  const EvolutionAreaChartWidget({
+    super.key,
+    required this.data,
+    required this.title,
+    required this.subtitle,
+    required this.theme,
+    this.height = 260,
+    this.trailing,
+    this.trendLabel,
+  });
+
+  static const _chartGreen = Color(0xFF00897B);
+  static const _chartGreenLight = Color(0xFF4DB6AC);
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+      decoration: BoxDecoration(
+        color: theme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.border.withValues(alpha: isDark ? 0.6 : 0.35)),
+        boxShadow: isDark
+            ? [BoxShadow(color: Colors.black.withValues(alpha: 0.28), blurRadius: 18, offset: const Offset(0, 6))]
+            : [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 14, offset: const Offset(0, 4)),
+                BoxShadow(color: _chartGreen.withValues(alpha: 0.06), blurRadius: 24, offset: const Offset(0, 8)),
+              ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.show_chart_rounded, color: _chartGreen, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: _chartGreen,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: _chartGreen.withValues(alpha: 0.72),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    if (trendLabel != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: _chartGreen.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          trendLabel!,
+                          style: const TextStyle(color: _chartGreen, fontSize: 11, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (trailing != null) trailing!,
+            ],
+          ),
+          const SizedBox(height: 18),
+          data.isEmpty
+              ? _EmptyChart(theme: theme, icon: Icons.show_chart_rounded)
+              : SizedBox(height: height, child: LineChart(_buildData())),
+        ],
+      ),
+    );
+  }
+
+  LineChartData _buildData() {
+    final values = data.map((e) => (e['value'] as num).toDouble()).toList();
+    final maxY = values.isEmpty ? 4.0 : values.reduce((a, b) => a > b ? a : b);
+    final ceiling = _niceCeiling(maxY);
+    final hInterval = ceiling / 4;
+    final labelStep = _labelStep(data.length);
+    final spots = List.generate(values.length, (i) => FlSpot(i.toDouble(), values[i]));
+
+    return LineChartData(
+      clipData: const FlClipData.all(),
+      minX: 0,
+      maxX: (data.length - 1).toDouble().clamp(0, double.infinity),
+      minY: 0,
+      maxY: ceiling,
+      lineTouchData: LineTouchData(
+        handleBuiltInTouches: true,
+        touchTooltipData: LineTouchTooltipData(
+          getTooltipColor: (_) => theme.surface,
+          tooltipBorder: BorderSide(color: _chartGreen.withValues(alpha: 0.35)),
+          tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          getTooltipItems: (touchedSpots) => touchedSpots.map((spot) {
+            final idx = spot.x.toInt();
+            final label = idx >= 0 && idx < data.length ? data[idx]['label'].toString() : '';
+            return LineTooltipItem(
+              '$label\n${formatChartValue(spot.y)}',
+              const TextStyle(color: _chartGreen, fontWeight: FontWeight.w700, fontSize: 12, height: 1.35),
+            );
+          }).toList(),
+        ),
+      ),
+      titlesData: FlTitlesData(
+        show: true,
+        bottomTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            interval: 1,
+            getTitlesWidget: (value, meta) {
+              final index = value.toInt();
+              if (index < 0 || index >= data.length) return const SizedBox.shrink();
+              if (index % labelStep != 0 && index != data.length - 1) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  data[index]['label'].toString(),
+                  style: TextStyle(color: theme.textMute, fontSize: 10, fontWeight: FontWeight.w500),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            },
+            reservedSize: 36,
+          ),
+        ),
+        leftTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            reservedSize: 42,
+            interval: hInterval,
+            getTitlesWidget: (value, meta) {
+              if (value < 0 || value > ceiling + 0.01) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Text(
+                  formatChartValue(value),
+                  style: TextStyle(color: theme.textMute, fontSize: 10, fontWeight: FontWeight.w500),
+                  textAlign: TextAlign.right,
+                ),
+              );
+            },
+          ),
+        ),
+        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      ),
+      borderData: FlBorderData(show: false),
+      gridData: FlGridData(
+        show: true,
+        drawVerticalLine: false,
+        horizontalInterval: hInterval,
+        getDrawingHorizontalLine: (_) => FlLine(
+          color: theme.border.withValues(alpha: 0.45),
+          strokeWidth: 1,
+        ),
+      ),
+      lineBarsData: [
+        LineChartBarData(
+          spots: spots,
+          isCurved: true,
+          curveSmoothness: 0.42,
+          preventCurveOverShooting: true,
+          color: _chartGreen,
+          barWidth: 2.5,
+          isStrokeCapRound: true,
+          dotData: FlDotData(
+            show: true,
+            getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+              radius: 4,
+              color: _chartGreen,
+              strokeWidth: 2,
+              strokeColor: theme.surface,
+            ),
+          ),
+          belowBarData: BarAreaData(
+            show: true,
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                _chartGreen.withValues(alpha: 0.22),
+                _chartGreenLight.withValues(alpha: 0.06),
+                _chartGreen.withValues(alpha: 0.0),
+              ],
+              stops: const [0.0, 0.55, 1.0],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  double _niceCeiling(double maxY) {
+    if (maxY <= 0) return 4;
+    if (maxY <= 4) return 4;
+    if (maxY <= 10) return 10;
+    if (maxY <= 50) return ((maxY / 10).ceil() * 10).toDouble();
+    if (maxY <= 500) return ((maxY / 50).ceil() * 50).toDouble();
+    if (maxY <= 5000) return ((maxY / 500).ceil() * 500).toDouble();
+    return ((maxY / 1000).ceil() * 1000).toDouble();
+  }
+
+  int _labelStep(int count) {
+    if (count <= 7) return 1;
+    if (count <= 14) return 2;
+    if (count <= 21) return 3;
+    return 5;
+  }
+}
+
 class _ChartCard extends StatelessWidget {
   final StatsChartTheme theme;
   final String title;
@@ -297,12 +533,14 @@ class _ChartCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: TextStyle(color: theme.text, fontSize: 15, fontWeight: FontWeight.w700)),
-          if (subtitle != null) ...[
-            const SizedBox(height: 4),
-            Text(subtitle!, style: TextStyle(color: theme.textMute, fontSize: 11)),
+          if (title.isNotEmpty) ...[
+            Text(title, style: TextStyle(color: theme.text, fontSize: 15, fontWeight: FontWeight.w700)),
+            if (subtitle != null) ...[
+              const SizedBox(height: 4),
+              Text(subtitle!, style: TextStyle(color: theme.textMute, fontSize: 11)),
+            ],
+            const SizedBox(height: 16),
           ],
-          const SizedBox(height: 16),
           child,
         ],
       ),
@@ -397,7 +635,7 @@ class RingMetricWidget extends StatelessWidget {
                   ),
                   Text(
                     value,
-                    style: TextStyle(color: theme.textMute, fontSize: 9),
+                    style: TextStyle(color: theme.textMute, fontSize: 10, fontWeight: FontWeight.w500),
                     textAlign: TextAlign.center,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -410,14 +648,14 @@ class RingMetricWidget extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           label,
-          style: TextStyle(color: theme.text, fontSize: 11, fontWeight: FontWeight.w600),
+          style: TextStyle(color: theme.text, fontSize: 12, fontWeight: FontWeight.w600),
           textAlign: TextAlign.center,
         ),
         if (explanation != null) ...[
           const SizedBox(height: 4),
           Text(
             explanation!,
-            style: TextStyle(color: theme.textMute, fontSize: 9, height: 1.3),
+            style: TextStyle(color: theme.textMute, fontSize: 11, height: 1.3, fontWeight: FontWeight.w500),
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,

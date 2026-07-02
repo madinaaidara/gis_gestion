@@ -204,7 +204,7 @@ class _FunCalendarPickerState extends State<FunCalendarPicker>
                       children: [
                         Text(
                           '${_months[_currentMonth.month - 1]} ${_currentMonth.year}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF1E293B),
@@ -480,7 +480,7 @@ class _QuickFilterChipState extends State<_QuickFilterChip>
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             gradient: widget.isSelected
-                ? const LinearGradient(
+                ? LinearGradient(
                     colors: [Color(0xFF6366F1), Color(0xFF818CF8)],
                   )
                 : null,
@@ -696,7 +696,7 @@ class _ActionButtonState extends State<_ActionButton>
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
             gradient: widget.color == const Color(0xFF6366F1)
-                ? const LinearGradient(
+                ? LinearGradient(
                     colors: [Color(0xFF6366F1), Color(0xFF818CF8)],
                   )
                 : null,

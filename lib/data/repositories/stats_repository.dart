@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class StatsRepository {
@@ -188,51 +189,84 @@ class StatsRepository {
     agg[nom]!['ca'] = (agg[nom]!['ca'] as double) + ca;
   }
 
-  /// Évolution du CA dans le temps
+  /// Évolution du CA dans le temps — série complète avec zéros sur la période.
   Future<Map<String, dynamic>> getEvolutionCA(String shopId, String periode) async {
     try {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+
+      final List<Map<String, dynamic>> evolutionData;
+
+      if (periode == 'semaine') {
+        evolutionData = List.generate(7, (i) {
+          final day = today.subtract(Duration(days: 6 - i));
+          return {
+            'label': _formatEvolutionLabel(day, periode),
+            'value': 0.0,
+            'key': _dayKey(day),
+          };
+        });
+      } else if (periode == 'mois') {
+        evolutionData = List.generate(30, (i) {
+          final day = today.subtract(Duration(days: 29 - i));
+          return {
+            'label': _formatEvolutionLabel(day, periode),
+            'value': 0.0,
+            'key': _dayKey(day),
+          };
+        });
+      } else {
+        evolutionData = List.generate(12, (i) {
+          final month = DateTime(today.year, today.month - (11 - i), 1);
+          return {
+            'label': _formatEvolutionLabel(month, periode),
+            'value': 0.0,
+            'key': _monthKey(month),
+          };
+        });
+      }
+
       final dateRange = _getDateRange(periode);
       final ventes = await _fetchVentes(shopId, dateRange);
+      final indexByKey = {for (var i = 0; i < evolutionData.length; i++) evolutionData[i]['key'] as String: i};
 
-      final Map<String, double> evolution = {};
       for (final vente in ventes) {
         final dateVente = vente['date_vente'];
         if (dateVente == null) continue;
         final date = DateTime.tryParse(dateVente.toString());
         if (date == null) continue;
 
-        final String key;
-        if (periode == 'semaine') {
-          const jours = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-          key = jours[date.weekday - 1];
-        } else if (periode == 'mois') {
-          key = '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
-        } else {
-          const mois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
-          key = mois[date.month - 1];
-        }
+        final key = periode == 'annee' ? _monthKey(date) : _dayKey(date);
+        final idx = indexByKey[key];
+        if (idx == null) continue;
 
         final total = (vente['total'] as num?)?.toDouble() ?? 0.0;
-        evolution[key] = (evolution[key] ?? 0.0) + total;
+        evolutionData[idx]['value'] = (evolutionData[idx]['value'] as double) + total;
       }
 
-      final evolutionData = evolution.entries.map((e) => {'label': e.key, 'value': e.value}).toList();
-
-      if (periode == 'semaine') {
-        const order = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-        evolutionData.sort((a, b) => order.indexOf(a['label'] as String).compareTo(order.indexOf(b['label'] as String)));
-      } else if (periode == 'annee') {
-        const order = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
-        evolutionData.sort((a, b) => order.indexOf(a['label'] as String).compareTo(order.indexOf(b['label'] as String)));
-      } else {
-        evolutionData.sort((a, b) => (a['label'] as String).compareTo(b['label'] as String));
-      }
-
-      return {'data': evolutionData};
+      return {
+        'data': evolutionData.map((e) => {'label': e['label'], 'value': e['value']}).toList(),
+      };
     } catch (e) {
       debugPrint('❌ Erreur getEvolutionCA: $e');
       return {'data': []};
     }
+  }
+
+  String _dayKey(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+  String _monthKey(DateTime date) => '${date.year}-${date.month.toString().padLeft(2, '0')}';
+
+  String _formatEvolutionLabel(DateTime date, String periode) {
+    if (periode == 'semaine') {
+      final raw = DateFormat('EEE d', 'fr_FR').format(date);
+      return raw[0].toUpperCase() + raw.substring(1);
+    }
+    if (periode == 'mois') {
+      return DateFormat('d MMM', 'fr_FR').format(date);
+    }
+    return DateFormat('MMM yyyy', 'fr_FR').format(date);
   }
 
   Map<String, String?> _getDateRange(String periode) {

@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../../core/theme/app_surface.dart';
+import '../../core/theme/gis_palette.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// Splash animé premium — logo pulsé, anneaux, particules.
@@ -21,10 +23,8 @@ class AnimatedSplash extends StatefulWidget {
 }
 
 class _AnimatedSplashState extends State<AnimatedSplash> with TickerProviderStateMixin {
-  static const Color _bg = Color(0xFF050505);
-  static const Color _accent = Color(0xFF7C5CFF);
-  static const Color _text = Color(0xFFF5F5F7);
-  static const Color _textMute = Color(0xFF8A8A92);
+  GisPalette get _p => GisPalette.of(context);
+
 
   late AnimationController _logoController;
   late AnimationController _ringController;
@@ -74,7 +74,7 @@ class _AnimatedSplashState extends State<AnimatedSplash> with TickerProviderStat
     final logoSize = MediaQuery.sizeOf(context).width >= 900 ? 160.0 : 120.0;
 
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: _p.bg,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -115,7 +115,7 @@ class _AnimatedSplashState extends State<AnimatedSplash> with TickerProviderStat
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 32,
                                   fontWeight: FontWeight.w800,
-                                  color: _text,
+                                  color: _p.text,
                                   letterSpacing: -0.8,
                                 ),
                               ),
@@ -124,7 +124,7 @@ class _AnimatedSplashState extends State<AnimatedSplash> with TickerProviderStat
                                 'Voir · Gérer · Performer',
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 13,
-                                  color: _textMute,
+                                  color: _p.textMute,
                                   letterSpacing: 2,
                                 ),
                               ),
@@ -147,8 +147,8 @@ class _AnimatedSplashState extends State<AnimatedSplash> with TickerProviderStat
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(4),
                                 child: LinearProgressIndicator(
-                                backgroundColor: const Color(0xFF222226),
-                                valueColor: AlwaysStoppedAnimation(_accent.withValues(alpha: 0.8 + _glowController.value * 0.2)),
+                                backgroundColor:  AppSurface.border,
+                                valueColor: AlwaysStoppedAnimation(_p.accent.withValues(alpha: 0.8 + _glowController.value * 0.2)),
                                 minHeight: 3,
                                 ),
                               ),
@@ -156,7 +156,7 @@ class _AnimatedSplashState extends State<AnimatedSplash> with TickerProviderStat
                             const SizedBox(height: 14),
                             Text(
                               widget.statusText,
-                              style: const TextStyle(color: _textMute, fontSize: 12),
+                              style:  TextStyle(color: _p.textMute, fontSize: 12),
                             ),
                           ],
                         ),
@@ -169,14 +169,14 @@ class _AnimatedSplashState extends State<AnimatedSplash> with TickerProviderStat
                       margin: const EdgeInsets.symmetric(horizontal: 32),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFF4D6D).withValues(alpha: 0.1),
+                        color:  AppSurface.danger.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFFF4D6D).withValues(alpha: 0.3)),
+                        border: Border.all(color:  AppSurface.danger.withValues(alpha: 0.3)),
                       ),
                       child: Text(
                         widget.errorMessage!,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: Color(0xFFFF4D6D), fontSize: 11),
+                        style: TextStyle(color: AppSurface.danger, fontSize: 11),
                       ),
                     ),
                   ],
@@ -214,10 +214,10 @@ class _AnimatedLogo extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: SweepGradient(
                   colors: [
-                    const Color(0xFF7C5CFF).withValues(alpha: 0),
-                    const Color(0xFF7C5CFF).withValues(alpha: 0.7),
-                    const Color(0xFFB8A4FF).withValues(alpha: 0.3),
-                    const Color(0xFF7C5CFF).withValues(alpha: 0),
+                     AppSurface.accent.withValues(alpha: 0),
+                     AppSurface.accent.withValues(alpha: 0.7),
+                     AppSurface.accentSoft.withValues(alpha: 0.3),
+                     AppSurface.accent.withValues(alpha: 0),
                   ],
                 ),
               ),
@@ -230,7 +230,7 @@ class _AnimatedLogo extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF7C5CFF).withValues(alpha: 0.35 * glow),
+                  color:  AppSurface.accent.withValues(alpha: 0.35 * glow),
                   blurRadius: 40 * glow,
                   spreadRadius: 4,
                 ),
@@ -241,13 +241,13 @@ class _AnimatedLogo extends StatelessWidget {
             width: size,
             height: size,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF7C5CFF), Color(0xFF5B3FD4)],
+                colors: [AppSurface.accent, Color(0xFF5B3FD4)],
               ),
               borderRadius: BorderRadius.circular(size * 0.28),
-              border: Border.all(color: const Color(0xFFB8A4FF).withValues(alpha: 0.4), width: 2),
+              border: Border.all(color:  AppSurface.accentSoft.withValues(alpha: 0.4), width: 2),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(size * 0.26),
@@ -292,10 +292,10 @@ class _SplashParticlePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final bg = Paint()
-      ..shader = const LinearGradient(
+      ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFF050505), Color(0xFF0A0818), Color(0xFF050505)],
+        colors: [AppSurface.bg, AppSurface.surfaceHi, AppSurface.bg],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bg);
 
@@ -316,7 +316,7 @@ class _SplashParticlePainter extends CustomPainter {
       120 * pulse,
       Paint()
         ..shader = RadialGradient(
-          colors: [const Color(0xFF7C5CFF).withValues(alpha: 0.15), Colors.transparent],
+          colors: [ AppSurface.accent.withValues(alpha: 0.15), Colors.transparent],
         ).createShader(Rect.fromCircle(center: Offset(size.width * 0.8, size.height * 0.15), radius: 120)),
     );
   }

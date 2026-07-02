@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/gis_palette.dart';
+import '../../../core/theme/gis_theme_ext.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/repositories/accueil_repository.dart';
 import '../../../data/repositories/shops_repository.dart';
 import '../../widgets/custom_charts.dart';
+import '../../widgets/gis_dashboard_widgets.dart';
 
 class AccueilPage extends StatefulWidget {
   final void Function(int index)? onNavigate;
@@ -19,20 +22,8 @@ class AccueilPage extends StatefulWidget {
 }
 
 class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin {
-  static const Color _bg = Color(0xFF050505);
-  static const Color _surface = Color(0xFF0E0E10);
-  static const Color _surfaceHi = Color(0xFF161618);
-  static const Color _border = Color(0xFF222226);
-  static const Color _text = Color(0xFFF5F5F7);
-  static const Color _textMute = Color(0xFF8A8A92);
-  static const Color _textDim = Color(0xFF5C5C63);
-  static const Color _accent = Color(0xFF7C5CFF);
-  static const Color _accentSoft = Color(0xFFB8A4FF);
-  static const Color _success = Color(0xFF22C55E);
-  static const Color _danger = Color(0xFFFF4D6D);
-  static const Color _warning = Color(0xFFF59E0B);
-  static const Color _info = Color(0xFF3B82F6);
-  static const Color _gold = Color(0xFFFBBF24);
+  GisPalette get _p => GisPalette.of(context);
+
 
   final _repo = AccueilRepository();
 
@@ -52,14 +43,14 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
   late Animation<double> _ambientAnim;
   late Animation<double> _countAnim;
 
-  StatsChartTheme get _chartTheme => const StatsChartTheme(
-        surface: _surface,
-        border: _border,
-        text: _text,
-        textMute: _textMute,
-        accent: _accent,
-        accentSoft: _accentSoft,
-        success: _success,
+  StatsChartTheme get _chartTheme =>  StatsChartTheme(
+        surface: _p.surface,
+        border: _p.border,
+        text: _p.text,
+        textMute: _p.textMute,
+        accent: _p.accent,
+        accentSoft: _p.accentSoft,
+        success: _p.success,
       );
 
   @override
@@ -195,21 +186,24 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return TooltipTheme(
       data: TooltipThemeData(
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1E),
+          color: isDark ? const Color(0xFF1A1A1E) : _p.text,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: _border),
+          border: Border.all(color: _p.border),
         ),
-        textStyle: const TextStyle(color: _text, fontSize: 11, height: 1.35),
+        textStyle: TextStyle(color: isDark ? _p.text : Colors.white, fontSize: 12, height: 1.35),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         waitDuration: const Duration(milliseconds: 300),
       ),
       child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent),
+        value: isDark
+            ? SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent)
+            : SystemUiOverlayStyle.dark.copyWith(statusBarColor: Colors.transparent),
         child: Scaffold(
-          backgroundColor: _bg,
+          backgroundColor: _p.bg,
           body: Stack(
             children: [
               _AmbientBackground(anim: _ambientAnim),
@@ -218,26 +212,152 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
                     ? const _DashboardSkeleton()
                     : RefreshIndicator(
                         onRefresh: _loadData,
-                        color: _accent,
-                        backgroundColor: _surface,
+                        color: _p.accent,
+                        backgroundColor: _p.surface,
                         child: CustomScrollView(
                           physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                           slivers: [
-                            SliverToBoxAdapter(child: _stagger(0, _buildHeader())),
-                            SliverToBoxAdapter(child: _stagger(1, _buildHero())),
-                            SliverToBoxAdapter(child: _stagger(2, _buildCircularSection())),
-                            SliverToBoxAdapter(child: _stagger(3, _buildDonutSection())),
-                            SliverToBoxAdapter(child: _stagger(4, _buildPersonalizedActions())),
-                            SliverToBoxAdapter(child: _stagger(5, _buildKpiStrip())),
-                            SliverToBoxAdapter(child: _stagger(6, _buildAlerts())),
-                            SliverToBoxAdapter(child: _stagger(7, _buildRecentSales())),
-                            const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                            SliverToBoxAdapter(child: _stagger(0, _buildWelcomeBlock())),
+                            SliverToBoxAdapter(child: _stagger(1, _buildMainKpiGrid())),
+                            SliverToBoxAdapter(child: _stagger(2, _buildDonutSection())),
+                            SliverToBoxAdapter(child: _stagger(3, _buildPerformanceStrip())),
+                            SliverToBoxAdapter(child: _stagger(4, _buildAlerts())),
+                            SliverToBoxAdapter(child: _stagger(5, _buildRecentSales())),
+                            const SliverToBoxAdapter(child: SizedBox(height: 24)),
                           ],
                         ),
                       ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWelcomeBlock() {
+    final displayName = proprietaire?.isNotEmpty == true ? proprietaire! : userName ?? 'Gérant';
+    return GisDashboardWelcome(
+      userName: displayName,
+      shopName: shopName,
+      onRefresh: _loadData,
+      actions: [
+        GisDashboardAction(
+          label: 'Nouvelle vente',
+          icon: Icons.add_rounded,
+          primary: true,
+          onTap: () => _go(1),
+        ),
+        GisDashboardAction(
+          label: 'Statistiques',
+          icon: Icons.insights_rounded,
+          onTap: () => _go(5),
+        ),
+        GisDashboardAction(
+          label: 'Historique',
+          icon: Icons.history_rounded,
+          onTap: () => _go(4),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMainKpiGrid() {
+    final totalProd = _i('total_produits');
+    final stockPct = totalProd > 0 ? _i('stock_ok') / totalProd : 0.0;
+    final objectifPct = (_d('objectif_jour_percent') / 100).clamp(0.0, 1.0);
+
+    return GisStatCardGrid(
+      cards: [
+        GisGradientStatCard(
+          label: 'Ventes aujourd\'hui',
+          value: '${_i('ventes_jour')}',
+          subtitle: '${_i('ventes_comptant_jour')} comptant · ${_i('ventes_credit_jour')} crédit',
+          icon: Icons.receipt_long_rounded,
+          gradient: const [Color(0xFF7C5CFF), Color(0xFF5B3FE6)],
+          progress: objectifPct,
+        ),
+        GisGradientStatCard(
+          label: 'Chiffre d\'affaires',
+          value: _formatMoney(_d('ca_jour')),
+          subtitle: 'Bénéfice ${_moneyLabel(_d('benefice_jour'), compact: true)}',
+          icon: Icons.payments_rounded,
+          gradient: const [Color(0xFF22C55E), Color(0xFF16A34A)],
+        ),
+        GisGradientStatCard(
+          label: 'Stock sain',
+          value: totalProd > 0 ? '${_i('stock_ok')}/$totalProd' : '—',
+          subtitle: '${_i('stock_rupture')} rupture · ${_i('stock_faible')} faible',
+          icon: Icons.inventory_2_rounded,
+          gradient: const [Color(0xFF3B82F6), Color(0xFF2563EB)],
+          progress: stockPct,
+        ),
+        GisGradientStatCard(
+          label: 'Crédits en cours',
+          value: '${_i('credits_en_cours')}',
+          subtitle: 'Reste ${_moneyLabel(_d('credits_reste_total'), compact: true)}',
+          icon: Icons.credit_card_rounded,
+          gradient: const [Color(0xFFF59E0B), Color(0xFFD97706)],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPerformanceStrip() {
+    final marge = _d('marge_mois_percent');
+    final caSemaine = _d('ca_semaine');
+    final ventesMois = _i('ventes_mois');
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: GisChartPanel(
+        title: 'Performance du mois',
+        subtitle: 'Marge · activité · chiffre clé',
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final narrow = constraints.maxWidth < 520;
+            final insights = [
+              _MiniInsight(
+                label: 'Marge nette',
+                value: '${marge.toStringAsFixed(0)}%',
+                color: _p.success,
+                icon: Icons.trending_up_rounded,
+              ),
+              _MiniInsight(
+                label: 'CA 7 jours',
+                value: _moneyLabel(caSemaine, compact: true),
+                color: _p.info,
+                icon: Icons.calendar_view_week_rounded,
+              ),
+              _MiniInsight(
+                label: 'Ventes mois',
+                value: '$ventesMois',
+                color: _p.accent,
+                icon: Icons.shopping_bag_outlined,
+              ),
+            ];
+            if (narrow) {
+              return Column(
+                children: [
+                  for (var i = 0; i < insights.length; i++) ...[
+                    insights[i],
+                    if (i < insights.length - 1) const SizedBox(height: 8),
+                  ],
+                ],
+              );
+            }
+            return Row(
+              children: [
+                for (var i = 0; i < insights.length; i++)
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(right: i < insights.length - 1 ? 10 : 0),
+                      child: insights[i],
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -256,11 +376,11 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [_accent.withValues(alpha: 0.35), _accent.withValues(alpha: 0.08)]),
+              gradient: LinearGradient(colors: [_p.accent.withValues(alpha: 0.35), _p.accent.withValues(alpha: 0.08)]),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _accent.withValues(alpha: 0.3)),
+              border: Border.all(color: _p.accent.withValues(alpha: 0.3)),
             ),
-            child: const Icon(Icons.dashboard_rounded, color: _accentSoft, size: 20),
+            child:  Icon(Icons.dashboard_rounded, color: _p.accentSoft, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -269,12 +389,12 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
               children: [
                 Text(
                   dateLabel.isNotEmpty ? dateLabel : 'Tableau de bord',
-                  style: TextStyle(color: _textDim, fontSize: 10, letterSpacing: 0.5, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: _p.textMute, fontSize: 12, letterSpacing: 0.3, fontWeight: FontWeight.w600),
                 ),
                 Text(
                   '$_greeting, $displayName',
                   style: GoogleFonts.plusJakartaSans(
-                    color: _text,
+                    color: _p.text,
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.5,
@@ -285,7 +405,7 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
                 ),
                 Text(
                   shopName ?? 'Ma boutique',
-                  style: const TextStyle(color: _accentSoft, fontSize: 11),
+                  style: TextStyle(color: _p.textMute, fontSize: 12, fontWeight: FontWeight.w500),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -305,44 +425,40 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
   Widget _buildHero() {
     final caJour = _d('ca_jour');
     final objectif = _d('objectif_jour_percent');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
       child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              _accent.withValues(alpha: 0.22),
-              const Color(0xFF1A1240).withValues(alpha: 0.9),
-              _surfaceHi,
-            ],
-          ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _accent.withValues(alpha: 0.35)),
-          boxShadow: [
-            BoxShadow(
-              color: _accent.withValues(alpha: 0.18),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
+        padding: const EdgeInsets.all(18),
+        decoration: _p.heroDecoration(context, radius: 16),
         child: Row(
           children: [
+            if (!isDark)
+              Container(
+                width: 4,
+                height: 72,
+                margin: const EdgeInsets.only(right: 16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [_p.accent, _p.accentSoft],
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      _chip('Aujourd\'hui', _accentSoft),
+                      _chip('Aujourd\'hui', isDark ? _p.accentSoft : _p.accent),
                       const SizedBox(width: 6),
                       Tooltip(
                         message: DateFormat('EEEE d MMMM yyyy', 'fr_FR').format(DateTime.now()),
-                        child: Icon(Icons.calendar_today_rounded, size: 12, color: _textDim),
+                        child: Icon(Icons.calendar_today_rounded, size: 13, color: _p.textMute),
                       ),
                     ],
                   ),
@@ -352,7 +468,14 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Chiffre d\'affaires', style: TextStyle(color: _textMute, fontSize: 11)),
+                        Text(
+                          'Chiffre d\'affaires',
+                          style: TextStyle(
+                            color: _p.textMute,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         AnimatedBuilder(
                           animation: _countAnim,
                           builder: (context, _) {
@@ -360,10 +483,10 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
                             return Text(
                               _moneyLabel(animatedCa),
                               style: GoogleFonts.plusJakartaSans(
-                                color: _text,
-                                fontSize: 28,
+                                color: _p.text,
+                                fontSize: 32,
                                 fontWeight: FontWeight.w800,
-                                letterSpacing: -1,
+                                letterSpacing: -1.2,
                               ),
                             );
                           },
@@ -375,7 +498,7 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
                   Text(
                     '${_i('ventes_jour')} vente${_i('ventes_jour') > 1 ? 's' : ''} · '
                     'Bénéfice ${_moneyLabel(_d('benefice_jour'), compact: true)}',
-                    style: const TextStyle(color: _textDim, fontSize: 10),
+                    style: TextStyle(color: _p.textMute, fontSize: 12, fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
@@ -399,7 +522,7 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
                           child: CircularProgressIndicator(
                             value: 1,
                             strokeWidth: 6,
-                            color: _border,
+                            color: _p.border,
                             backgroundColor: Colors.transparent,
                           ),
                         ),
@@ -409,7 +532,7 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
                           child: CircularProgressIndicator(
                             value: (animObjectif / 100).clamp(0.0, 1.0),
                             strokeWidth: 6,
-                            color: objectif >= 100 ? _success : _accent,
+                            color: objectif >= 100 ? _p.success : _p.accent,
                             backgroundColor: Colors.transparent,
                             strokeCap: StrokeCap.round,
                           ),
@@ -419,9 +542,9 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
                           children: [
                             Text(
                               '${animObjectif.toStringAsFixed(0)}%',
-                              style: const TextStyle(color: _text, fontSize: 13, fontWeight: FontWeight.w800),
+                              style: TextStyle(color: _p.text, fontSize: 14, fontWeight: FontWeight.w800),
                             ),
-                            const Text('Objectif', style: TextStyle(color: _textDim, fontSize: 8)),
+                            Text('Objectif', style: TextStyle(color: _p.textMute, fontSize: 10, fontWeight: FontWeight.w500)),
                           ],
                         ),
                       ],
@@ -465,7 +588,7 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
                   label: 'Marge mois',
                   value: _moneyLabel(_d('benefice_mois'), compact: true),
                   explanation: 'Bénéfice ÷ CA',
-                  color: _success,
+                  color: _p.success,
                 ),
                 RingMetricWidget(
                   theme: _chartTheme,
@@ -474,7 +597,7 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
                   label: 'Crédit jour',
                   value: '${_i('ventes_credit_jour')}/${_i('ventes_jour')}',
                   explanation: 'Ventes à crédit',
-                  color: _warning,
+                  color: _p.warning,
                 ),
                 RingMetricWidget(
                   theme: _chartTheme,
@@ -483,7 +606,7 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
                   label: 'Stock OK',
                   value: '${_i('stock_ok')}/$totalProd',
                   explanation: 'Produits sains',
-                  color: _info,
+                  color: _p.info,
                 ),
                 RingMetricWidget(
                   theme: _chartTheme,
@@ -492,7 +615,7 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
                   label: 'Activité',
                   value: '${_i('ventes_semaine')}/sem',
                   explanation: 'Rythme ventes',
-                  color: _accent,
+                  color: _p.accent,
                 ),
               ],
             ),
@@ -515,53 +638,36 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
     final stockSections = <Map<String, dynamic>>[];
     if (stockOk > 0) stockSections.add({'label': 'En stock', 'value': stockOk});
     if (stockAlert > 0) stockSections.add({'label': 'Alerte', 'value': stockAlert});
+    final totalProd = _i('total_produits');
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: _Panel(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SectionTitle(
-              title: 'Répartitions du jour',
-              tooltip: 'Diagrammes circulaires : encaissements et état du stock en temps réel.',
-            ),
-            const SizedBox(height: 12),
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: DonutChartWidget(
-                      theme: _chartTheme,
-                      compact: true,
-                      embedded: true,
-                      title: 'Paiements',
-                      subtitle: 'Comptant vs crédit',
-                      centerLabel: 'CA jour',
-                      centerValue: _formatMoney(_d('ca_jour'), compact: true),
-                      sections: paymentSections,
-                      colors: const [_success, _warning],
-                    ),
-                  ),
-                  Container(width: 1, margin: const EdgeInsets.symmetric(horizontal: 10), color: _border),
-                  Expanded(
-                    child: DonutChartWidget(
-                      theme: _chartTheme,
-                      compact: true,
-                      embedded: true,
-                      title: 'Stock',
-                      subtitle: 'OK vs alertes',
-                      centerLabel: 'Total',
-                      centerValue: '${_i('total_produits')}',
-                      sections: stockSections,
-                      colors: const [_success, _danger],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+      child: GisChartPanel(
+        title: 'Répartitions du jour',
+        subtitle: 'Total : ${_i('ventes_jour')} vente${_i('ventes_jour') > 1 ? 's' : ''} · ${_moneyLabel(_d('ca_jour'), compact: true)}',
+        child: GisDashboardSplit(
+          left: DonutChartWidget(
+            theme: _chartTheme,
+            compact: true,
+            embedded: true,
+            title: 'Paiements',
+            subtitle: 'Comptant vs crédit',
+            centerLabel: 'CA jour',
+            centerValue: _formatMoney(_d('ca_jour'), compact: true),
+            sections: paymentSections,
+            colors: [_p.success, _p.warning],
+          ),
+          right: DonutChartWidget(
+            theme: _chartTheme,
+            compact: true,
+            embedded: true,
+            title: 'Stock',
+            subtitle: 'OK vs alertes',
+            centerLabel: 'Total',
+            centerValue: '$totalProd',
+            sections: stockSections,
+            colors: [_p.success, _p.danger],
+          ),
         ),
       ),
     );
@@ -584,7 +690,7 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
             ? 'Commencer votre journée'
             : '${_i('ventes_jour')} vente${_i('ventes_jour') > 1 ? 's' : ''} · ${_moneyLabel(_d('ca_jour'), compact: true)}',
         icon: Icons.point_of_sale_rounded,
-        colors: [_accent, const Color(0xFF5B3FD4)],
+        colors: [_p.accent, Color(0xFF5B3FD4)],
         navIndex: 1,
         featured: true,
         badge: _i('ventes_jour') == 0 ? '!' : null,
@@ -599,7 +705,7 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
         title: 'Encaisser crédits',
         subtitle: 'Reste ${_moneyLabel(_d('credits_reste_total'), compact: true)}',
         icon: Icons.payments_rounded,
-        colors: [_warning, const Color(0xFFD97706)],
+        colors: [_p.warning, Color(0xFFD97706)],
         navIndex: 3,
         badge: '${_i('credits_en_cours')}',
         ringPercent: creditUrgency,
@@ -615,7 +721,7 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
             ? '${_i('stock_rupture')} rupture${_i('stock_rupture') > 1 ? 's' : ''}'
             : '${_i('stock_faible')} stock faible',
         icon: Icons.inventory_2_rounded,
-        colors: [_danger, const Color(0xFFDC2626)],
+        colors: [_p.danger, Color(0xFFDC2626)],
         navIndex: 2,
         badge: '${_i('stock_rupture') + _i('stock_faible')}',
         ringPercent: stockAlertPct,
@@ -629,7 +735,7 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
         title: 'Analyses',
         subtitle: 'CA mois ${_moneyLabel(_d('ca_mois'), compact: true)}',
         icon: Icons.insights_rounded,
-        colors: [_info, const Color(0xFF2563EB)],
+        colors: [_p.info, Color(0xFF2563EB)],
         navIndex: 5,
         ringPercent: marge,
         ringCenter: '${marge.toStringAsFixed(0)}%',
@@ -639,7 +745,7 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
         title: 'Historique',
         subtitle: '${_i('ventes_mois')} ventes ce mois',
         icon: Icons.receipt_long_rounded,
-        colors: [_textMute, _textDim],
+        colors: [_p.textMute, _p.textDim],
         navIndex: 4,
         ringPercent: activitePct,
         ringCenter: '${_i('ventes_semaine')}',
@@ -649,7 +755,7 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
         title: 'Mon profil',
         subtitle: shopName ?? 'Ma boutique',
         icon: Icons.store_rounded,
-        colors: [_accentSoft, _accent],
+        colors: [_p.accentSoft, _p.accent],
         navIndex: 6,
         ringPercent: stockOkPct,
         ringCenter: '${_i('stock_ok')}',
@@ -696,13 +802,13 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
 
   Widget _buildKpiStrip() {
     final kpis = [
-      ('Panier moy.', _moneyLabel(_d('panier_moyen_jour'), compact: true), _gold,
+      ('Panier moy.', _moneyLabel(_d('panier_moyen_jour'), compact: true), _p.gold,
           'Montant moyen par transaction aujourd\'hui.'),
-      ('7 jours', _moneyLabel(_d('ca_semaine'), compact: true), _info,
+      ('7 jours', _moneyLabel(_d('ca_semaine'), compact: true), _p.info,
           '${_i('ventes_semaine')} ventes sur la semaine glissante.'),
-      ('Ce mois', _moneyLabel(_d('ca_mois'), compact: true), _accentSoft,
+      ('Ce mois', _moneyLabel(_d('ca_mois'), compact: true), _p.accentSoft,
           'Marge ${ _d('marge_mois_percent').toStringAsFixed(0)}% · ${_i('ventes_mois')} ventes.'),
-      ('Catalogue', '${_i('total_produits')}', _accent,
+      ('Catalogue', '${_i('total_produits')}', _p.accent,
           '${_i('stock_ok')} produits en stock sain.'),
     ];
 
@@ -745,18 +851,18 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: _success.withValues(alpha: 0.07),
+              color: _p.success.withValues(alpha: 0.07),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _success.withValues(alpha: 0.18)),
+              border: Border.all(color: _p.success.withValues(alpha: 0.18)),
             ),
             child: Row(
               children: [
-                Icon(Icons.verified_rounded, color: _success, size: 16),
+                Icon(Icons.verified_rounded, color: _p.success, size: 16),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Boutique opérationnelle — aucune alerte',
-                    style: TextStyle(color: _success.withValues(alpha: 0.9), fontSize: 11),
+                    style: TextStyle(color: _p.success.withValues(alpha: 0.9), fontSize: 11),
                   ),
                 ),
               ],
@@ -776,7 +882,7 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
           if (creditsCount > 0)
             _CompactAlert(
               icon: Icons.credit_score_rounded,
-              color: _warning,
+              color: _p.warning,
               text: '$creditsCount crédit${creditsCount > 1 ? 's' : ''} · ${_moneyLabel(creditsReste, compact: true)} à encaisser',
               tooltip: 'Relancer ou encaisser les paiements clients.',
               onTap: () => _go(3),
@@ -785,7 +891,7 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
             if (creditsCount > 0) const SizedBox(height: 6),
             _CompactAlert(
               icon: Icons.error_outline_rounded,
-              color: _danger,
+              color: _p.danger,
               text: '$rupture rupture${rupture > 1 ? 's' : ''} — réapprovisionner',
               tooltip: alertes.isNotEmpty ? 'Ex: ${alertes.first['nom']}' : 'Voir le catalogue',
               onTap: () => _go(2),
@@ -795,7 +901,7 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
             if (creditsCount > 0) const SizedBox(height: 6),
             _CompactAlert(
               icon: Icons.warning_amber_rounded,
-              color: _warning,
+              color: _p.warning,
               text: '$faible produit${faible > 1 ? 's' : ''} stock faible',
               tooltip: 'Commander avant rupture.',
               onTap: () => _go(2),
@@ -811,31 +917,21 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      child: _Panel(
+      child: GisChartPanel(
+        title: 'Dernières ventes',
+        subtitle: 'Transactions récentes avec type de paiement',
+        trailing: GestureDetector(
+          onTap: () => _go(4),
+          child: Text('Voir tout →', style: TextStyle(color: _p.accent, fontSize: 12, fontWeight: FontWeight.w700)),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _SectionTitle(
-                    title: 'Dernières ventes',
-                    tooltip: 'Transactions récentes avec type de paiement.',
-                    dense: true,
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => _go(4),
-                  child: Tooltip(
-                    message: 'Historique complet',
-                    child: Text('Voir tout →', style: TextStyle(color: _accentSoft, fontSize: 10, fontWeight: FontWeight.w600)),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
             if (ventes.isEmpty)
-              Text('Aucune vente — touchez « Nouvelle vente » ci-dessus.', style: TextStyle(color: _textDim, fontSize: 11))
+              Text(
+                'Aucune vente — lancez une vente depuis la caisse.',
+                style: TextStyle(color: _p.textMute, fontSize: 13),
+              )
             else
               ...ventes.take(5).map((v) {
                 final nom = v['nom_produit']?.toString() ?? 'Vente';
@@ -854,13 +950,13 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
                           width: 28,
                           height: 28,
                           decoration: BoxDecoration(
-                            color: (credit ? _warning : _success).withValues(alpha: 0.12),
+                            color: (credit ? _p.warning : _p.success).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(
                             credit ? Icons.credit_card_rounded : Icons.payments_rounded,
                             size: 13,
-                            color: credit ? _warning : _success,
+                            color: credit ? _p.warning : _p.success,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -868,15 +964,15 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(nom, style: const TextStyle(color: _text, fontSize: 11, fontWeight: FontWeight.w500),
+                              Text(nom, style:  TextStyle(color: _p.text, fontSize: 11, fontWeight: FontWeight.w500),
                                   maxLines: 1, overflow: TextOverflow.ellipsis),
                               if (timeLabel.isNotEmpty)
-                                Text(timeLabel, style: const TextStyle(color: _textDim, fontSize: 9)),
+                                Text(timeLabel, style:  TextStyle(color: _p.textDim, fontSize: 9)),
                             ],
                           ),
                         ),
                         Text(_moneyLabel(total, compact: true),
-                            style: const TextStyle(color: _accentSoft, fontSize: 11, fontWeight: FontWeight.w700)),
+                            style:  TextStyle(color: _p.accentSoft, fontSize: 11, fontWeight: FontWeight.w700)),
                       ],
                     ),
                   ),
@@ -896,7 +992,7 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
-      child: Text(text, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w600)),
+      child: Text(text, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700)),
     );
   }
 }
@@ -927,6 +1023,53 @@ class _PersonalAction {
   });
 }
 
+class _MiniInsight extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  final IconData icon;
+
+  const _MiniInsight({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = GisPalette.of(context);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: GoogleFonts.plusJakartaSans(
+              color: p.text,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(color: p.textMute, fontSize: 11, fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+}
+
 class _Panel extends StatelessWidget {
   final Widget child;
 
@@ -934,13 +1077,10 @@ class _Panel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = GisPalette.of(context);
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0E0E10),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF222226)),
-      ),
+      padding: const EdgeInsets.all(16),
+      decoration: p.cardDecoration(context, radius: 14),
       child: child,
     );
   }
@@ -996,7 +1136,7 @@ class _FeaturedActionCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(action.title,
-                            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
+                            style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
                         Text(action.subtitle,
                             style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 11)),
                       ],
@@ -1010,7 +1150,7 @@ class _FeaturedActionCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(action.badge!,
-                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+                          style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
                     ),
                   const SizedBox(width: 8),
                   Icon(Icons.arrow_forward_rounded, color: Colors.white.withValues(alpha: 0.8), size: 20),
@@ -1033,7 +1173,7 @@ class _ActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFF0E0E10),
+      color: GisPalette.of(context).surface,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
@@ -1048,7 +1188,7 @@ class _ActionCard extends StatelessWidget {
               end: Alignment.centerRight,
               colors: [
                 action.colors.first.withValues(alpha: 0.12),
-                const Color(0xFF0E0E10),
+                GisPalette.of(context).surface,
               ],
             ),
           ),
@@ -1068,13 +1208,13 @@ class _ActionCard extends StatelessWidget {
                   children: [
                     Text(
                       action.title,
-                      style: const TextStyle(color: Color(0xFFF5F5F7), fontSize: 11, fontWeight: FontWeight.w700),
+                      style: TextStyle(color: GisPalette.of(context).text, fontSize: 11, fontWeight: FontWeight.w700),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       action.subtitle,
-                      style: const TextStyle(color: Color(0xFF8A8A92), fontSize: 8),
+                      style: TextStyle(color: GisPalette.of(context).textMute, fontSize: 8),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1134,7 +1274,7 @@ class _MiniActionRing extends StatelessWidget {
             child: CircularProgressIndicator(
               value: 1,
               strokeWidth: stroke,
-              color: const Color(0xFF222226),
+              color: GisPalette.of(context).border,
               backgroundColor: Colors.transparent,
             ),
           ),
@@ -1151,7 +1291,7 @@ class _MiniActionRing extends StatelessWidget {
           ),
           Text(
             center,
-            style: TextStyle(color: const Color(0xFFF5F5F7), fontSize: fontSize, fontWeight: FontWeight.w800),
+            style: TextStyle(color: GisPalette.of(context).text, fontSize: fontSize, fontWeight: FontWeight.w800),
             textAlign: TextAlign.center,
           ),
         ],
@@ -1171,6 +1311,8 @@ class _AmbientBackground extends StatelessWidget {
       animation: anim,
       builder: (context, _) {
         final pulse = 0.65 + anim.value * 0.35;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final scale = isDark ? 1.0 : 0.4;
         return IgnorePointer(
           child: Stack(
             children: [
@@ -1184,8 +1326,8 @@ class _AmbientBackground extends StatelessWidget {
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        const Color(0xFF7C5CFF).withValues(alpha: 0.22),
-                        const Color(0xFF7C5CFF).withValues(alpha: 0),
+                        GisPalette.of(context).accent.withValues(alpha: 0.22 * scale),
+                        GisPalette.of(context).accent.withValues(alpha: 0),
                       ],
                     ),
                   ),
@@ -1201,8 +1343,8 @@ class _AmbientBackground extends StatelessWidget {
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        const Color(0xFF3B82F6).withValues(alpha: 0.12),
-                        const Color(0xFF3B82F6).withValues(alpha: 0),
+                        GisPalette.of(context).info.withValues(alpha: 0.12 * scale),
+                        GisPalette.of(context).info.withValues(alpha: 0),
                       ],
                     ),
                   ),
@@ -1218,8 +1360,8 @@ class _AmbientBackground extends StatelessWidget {
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        const Color(0xFF22C55E).withValues(alpha: 0.08),
-                        const Color(0xFF22C55E).withValues(alpha: 0),
+                        GisPalette.of(context).success.withValues(alpha: 0.08 * scale),
+                        GisPalette.of(context).success.withValues(alpha: 0),
                       ],
                     ),
                   ),
@@ -1309,10 +1451,10 @@ class _DashboardSkeletonState extends State<_DashboardSkeleton> with SingleTicke
         gradient: LinearGradient(
           begin: Alignment(-1 + t * 2, 0),
           end: Alignment(0 + t * 2, 0),
-          colors: const [
-            Color(0xFF161618),
-            Color(0xFF222226),
-            Color(0xFF161618),
+          colors: [
+            GisPalette.of(context).surfaceHi,
+            GisPalette.of(context).border,
+            GisPalette.of(context).surfaceHi,
           ],
           stops: const [0.0, 0.5, 1.0],
         ),
@@ -1334,12 +1476,15 @@ class _SectionTitle extends StatelessWidget {
       children: [
         Text(title,
             style: TextStyle(
-                color: const Color(0xFFF5F5F7), fontSize: dense ? 12 : 13, fontWeight: FontWeight.w700)),
+                color: GisPalette.of(context).text,
+                fontSize: dense ? 13 : 15,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2)),
         const SizedBox(width: 4),
         Tooltip(
           message: tooltip,
           triggerMode: TooltipTriggerMode.tap,
-          child: Icon(Icons.info_outline_rounded, size: dense ? 13 : 14, color: const Color(0xFF5C5C63)),
+          child: Icon(Icons.info_outline_rounded, size: dense ? 14 : 15, color: GisPalette.of(context).textMute),
         ),
       ],
     );
@@ -1358,7 +1503,7 @@ class _TipIconButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: const Color(0xFF161618),
+        color: GisPalette.of(context).surfaceHi,
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
           onTap: onTap,
@@ -1368,9 +1513,9 @@ class _TipIconButton extends StatelessWidget {
             height: 36,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF222226)),
+              border: Border.all(color: GisPalette.of(context).border),
             ),
-            child: Icon(icon, color: const Color(0xFF8A8A92), size: 18),
+            child: Icon(icon, color: GisPalette.of(context).textMute, size: 18),
           ),
         ),
       ),
@@ -1394,7 +1539,7 @@ class _KpiChip extends StatelessWidget {
         width: 100,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF0E0E10),
+          color: GisPalette.of(context).surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: color.withValues(alpha: 0.22)),
         ),
@@ -1402,9 +1547,9 @@ class _KpiChip extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(label, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w600)),
+            Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600)),
             Text(value,
-                style: const TextStyle(color: Color(0xFFF5F5F7), fontSize: 12, fontWeight: FontWeight.w800),
+                style: TextStyle(color: GisPalette.of(context).text, fontSize: 13, fontWeight: FontWeight.w800),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis),
           ],
@@ -1434,7 +1579,7 @@ class _CompactAlert extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: const Color(0xFF0E0E10),
+        color: GisPalette.of(context).surface,
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
           onTap: onTap,
@@ -1450,7 +1595,7 @@ class _CompactAlert extends StatelessWidget {
               children: [
                 Icon(icon, color: color, size: 16),
                 const SizedBox(width: 8),
-                Expanded(child: Text(text, style: const TextStyle(color: Color(0xFFF5F5F7), fontSize: 11))),
+                Expanded(child: Text(text, style: TextStyle(color: GisPalette.of(context).text, fontSize: 11))),
                 Icon(Icons.chevron_right_rounded, color: color.withValues(alpha: 0.6), size: 16),
               ],
             ),

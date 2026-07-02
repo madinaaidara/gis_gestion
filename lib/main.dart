@@ -5,7 +5,9 @@ import 'package:intl/date_symbol_data_local.dart';
 
 // Constantes globales de configuration
 import 'core/constants/supabase_constants.dart';
-import 'core/theme/app_colors.dart' as theme;
+import 'core/theme/app_surface.dart';
+import 'core/theme/gis_palette.dart';
+import 'presentation/viewmodels/theme_viewmodel.dart';
 
 // COUCHE DATA : Importations corrigées selon votre arborescence exacte
 import 'data/repositories/products_repository.dart';
@@ -103,30 +105,19 @@ class GisGestionApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => StatsViewModel(StatsRepository())),
         ChangeNotifierProvider(create: (_) => AssistantViewModel(AssistantRepository())),
+        ChangeNotifierProvider(create: (_) => ThemeViewModel()),
       ],
 
 
-      child: MaterialApp(
+      child: Consumer<ThemeViewModel>(
+        builder: (context, themeVm, _) {
+          AppSurface.sync(themeVm.isDark ? GisPalette.dark : GisPalette.light);
+          return MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'Gis Gestion',
-        
-        // ============================================
-        // CONFIGURATION DU THÈME VISUEL SAAS PREMIUM
-        // ============================================
-        theme: ThemeData(
-          useMaterial3: true,
-          scaffoldBackgroundColor: theme.AppColors.background,
-          primaryColor: theme.AppColors.primaryIndigo,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: theme.AppColors.primaryIndigo,
-            background: theme.AppColors.background,
-            surface: theme.AppColors.surface,
-          ),
-          textTheme: const TextTheme(
-            bodyLarge: TextStyle(color: theme.AppColors.textPrimary),
-            bodyMedium: TextStyle(color: theme.AppColors.textPrimary),
-          ),
-        ),
+        theme: gisLightTheme(),
+        darkTheme: gisDarkTheme(),
+        themeMode: themeVm.mode,
 
         // ============================================
         // FLUX DE ROUTAGE NOMMÉ DE L'APPLICATION
@@ -139,6 +130,8 @@ class GisGestionApp extends StatelessWidget {
           '/setup-boutique': (context) => const SetupBoutiquePage(),
           '/onboarding-tour': (context) => const OnboardingTourPage(),
           '/abonnement': (context) => const AbonnementPage(),
+        },
+          );
         },
       ),
     );

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_surface.dart';
+import '../../../core/theme/gis_palette.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -48,7 +50,7 @@ class ProduitFormPanel extends StatefulWidget {
               CurvedAnimation(parent: anim, curve: Curves.easeOutCubic),
             ),
             child: Material(
-              color: const Color(0xFF0A0A0C),
+              color: GisPalette.of(context).surface,
               child: SizedBox(
                 width: 480,
                 height: double.infinity,
@@ -83,19 +85,8 @@ class ProduitFormPanel extends StatefulWidget {
 }
 
 class _ProduitFormPanelState extends State<ProduitFormPanel> {
-  static const Color _bg = Color(0xFF0A0A0C);
-  static const Color _surface = Color(0xFF121214);
-  static const Color _border = Color(0xFF28282D);
-  static const Color _text = Color(0xFFF5F5F7);
-  static const Color _textMute = Color(0xFF8A8A92);
-  static const Color _textDim = Color(0xFF5C5C63);
-  static const Color _accent = Color(0xFF7C5CFF);
-  static const Color _accentSoft = Color(0xFFB8A4FF);
-  static const Color _success = Color(0xFF22C55E);
-  static const Color _danger = Color(0xFFFF4D6D);
-  static const Color _achat = Color(0xFFF59E0B);
-  static const Color _vente = Color(0xFF22C55E);
-  static const Color _stockColor = Color(0xFF3B82F6);
+  GisPalette get _p => GisPalette.of(context);
+
 
   final _pageController = PageController();
   int _step = 0;
@@ -267,7 +258,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
 
   void _toast(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating, backgroundColor: _surface),
+      SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating, backgroundColor: _p.surface),
     );
   }
 
@@ -345,7 +336,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: _bg,
+      color: _p.bg,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -378,7 +369,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
         children: [
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.close_rounded, color: _textMute),
+            icon:  Icon(Icons.close_rounded, color: _p.textMute),
           ),
           Expanded(
             child: Column(
@@ -386,11 +377,11 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
               children: [
                 Text(
                   _isEdit ? 'Modifier le produit' : 'Nouveau produit',
-                  style: GoogleFonts.plusJakartaSans(color: _text, fontSize: 17, fontWeight: FontWeight.w800),
+                  style: GoogleFonts.plusJakartaSans(color: _p.text, fontSize: 17, fontWeight: FontWeight.w800),
                 ),
                 Text(
                   _stepSubtitle,
-                  style: const TextStyle(color: _textDim, fontSize: 11),
+                  style:  TextStyle(color: _p.textDim, fontSize: 11),
                 ),
               ],
             ),
@@ -413,7 +404,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
 
   Widget _buildStepIndicator() {
     const labels = ['Le produit', 'Les prix', 'La quantité'];
-    const colors = [ProduitUi.accent, ProduitUi.achat, ProduitUi.stock];
+    final colors = [ProduitUi.accent, ProduitUi.achat, ProduitUi.stock];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: Row(
@@ -428,7 +419,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
                   Container(
                     height: 3,
                     decoration: BoxDecoration(
-                      color: active ? colors[i] : _border,
+                      color: active ? colors[i] : _p.border,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -438,7 +429,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: i == _step ? FontWeight.w700 : FontWeight.w500,
-                      color: i == _step ? colors[i] : _textDim,
+                      color: i == _step ? colors[i] : _p.textDim,
                     ),
                   ),
                 ],
@@ -454,14 +445,14 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       children: [
-        const ProduitHelpTip(
+        ProduitHelpTip(
           title: 'C\'est simple',
           message: 'Mettez le nom comme vous le dites à vos clients. '
               'Exemple : « Riz 25 kg », « Huile », « Savon ».',
           color: ProduitUi.accent,
         ),
         const SizedBox(height: 16),
-        _field(nomController, 'Nom du produit *', 'Ex : Riz, Huile, Savon…', Icons.label_outline_rounded, autofocus: !_isEdit, accent: _accent),
+        _field(nomController, 'Nom du produit *', 'Ex : Riz, Huile, Savon…', Icons.label_outline_rounded, autofocus: !_isEdit, accent: _p.accent),
         const SizedBox(height: 20),
         Text('Rayon (facultatif)', style: _labelStyle()),
         const SizedBox(height: 8),
@@ -474,11 +465,11 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
               children: [
-                Icon(_showAdvanced ? Icons.expand_less : Icons.tune_rounded, size: 18, color: _textMute),
+                Icon(_showAdvanced ? Icons.expand_less : Icons.tune_rounded, size: 18, color: _p.textMute),
                 const SizedBox(width: 8),
                 Text(
                   _showAdvanced ? 'Masquer le plus (facultatif)' : 'Plus d\'options (facultatif)',
-                  style: const TextStyle(color: _textMute, fontSize: 12),
+                  style:  TextStyle(color: _p.textMute, fontSize: 12),
                 ),
               ],
             ),
@@ -499,7 +490,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       children: [
-        const ProduitHelpTip(
+        ProduitHelpTip(
           title: 'Comment ça marche ?',
           message: '1) Dites comment vous achetez (carton, sac…)\n'
               '2) Combien vous avez payé\n'
@@ -508,7 +499,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
           icon: Icons.payments_outlined,
         ),
         const SizedBox(height: 16),
-        Text('J\'achète en…', style: _labelStyle(color: _achat)),
+        Text('J\'achète en…', style: _labelStyle(color: _p.warning)),
         const SizedBox(height: 8),
         _chipRow(_unitesAchat, selectedUniteAchat, (v) => setState(() => selectedUniteAchat = v)),
         if (selectedUniteAchat != 'pièce') ...[
@@ -517,7 +508,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
             title: 'Important',
             message: 'Dans 1 $selectedUniteAchat, il y a combien de $selectedUniteVente ? '
                 'Exemple : 1 carton = 12 bouteilles → mettez 12.',
-            color: _achat,
+            color: _p.warning,
             icon: Icons.info_outline_rounded,
           ),
           const SizedBox(height: 12),
@@ -529,7 +520,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
             keyboard: const TextInputType.numberWithOptions(decimal: true),
             formatters: _numericFormatters,
             suffix: selectedUniteVente,
-            accent: _achat,
+            accent: _p.warning,
             onChanged: (_) => setState(() {}),
           ),
         ],
@@ -548,14 +539,14 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
           keyboard: const TextInputType.numberWithOptions(decimal: true),
           formatters: _numericFormatters,
           suffix: widget.devise,
-          accent: _achat,
+          accent: _p.warning,
           onChanged: (_) => setState(() {}),
         ),
         if (cout > 0) ...[
           const SizedBox(height: 8),
           Text(
             '→ Chaque $selectedUniteVente vous coûte ${cout.toStringAsFixed(0)} ${widget.devise}',
-            style: TextStyle(color: _achat, fontSize: 12, fontWeight: FontWeight.w600),
+            style: TextStyle(color: _p.warning, fontSize: 12, fontWeight: FontWeight.w600),
           ),
         ],
         const SizedBox(height: 14),
@@ -567,7 +558,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
           keyboard: const TextInputType.numberWithOptions(decimal: true),
           formatters: _numericFormatters,
           suffix: widget.devise,
-          accent: _vente,
+          accent: _p.success,
           onChanged: (_) => setState(() {}),
         ),
         if (_showAdvanced) ...[
@@ -575,10 +566,10 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: vendEnGros,
-            activeTrackColor: _accent.withValues(alpha: 0.5),
-            activeThumbColor: _accent,
-            title: const Text('Vente en gros', style: TextStyle(color: _text, fontSize: 13)),
-            subtitle: Text('Prix revendeur / $selectedUniteAchat', style: const TextStyle(color: _textDim, fontSize: 11)),
+            activeTrackColor: _p.accent.withValues(alpha: 0.5),
+            activeThumbColor: _p.accent,
+            title:  Text('Vente en gros', style: TextStyle(color: _p.text, fontSize: 13)),
+            subtitle: Text('Prix revendeur / $selectedUniteAchat', style:  TextStyle(color: _p.textDim, fontSize: 11)),
             onChanged: (v) => setState(() {
               vendEnGros = v;
               if (!v) prixVenteGrosController.clear();
@@ -607,7 +598,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       children: [
-        const ProduitHelpTip(
+        ProduitHelpTip(
           title: 'Comptez ce qu\'il reste',
           message: 'Regardez en rayon ou en réserve : combien de cartons, sacs ou pièces il vous reste aujourd\'hui.',
           color: ProduitUi.stock,
@@ -622,14 +613,14 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
           keyboard: const TextInputType.numberWithOptions(decimal: true),
           formatters: _numericFormatters,
           suffix: selectedUniteAchat,
-          accent: _stockColor,
+          accent: _p.info,
           onChanged: (_) => setState(() {}),
         ),
         if (_parse(stockActuelController.text) > 0 && _quantiteParUnite() > 1) ...[
           const SizedBox(height: 8),
           Text(
             '≈ ${_stockBase().toStringAsFixed(0)} $selectedUniteVente au total',
-            style: const TextStyle(color: _success, fontSize: 12, fontWeight: FontWeight.w600),
+            style:  TextStyle(color: _p.success, fontSize: 12, fontWeight: FontWeight.w600),
           ),
         ],
         if (_showAdvanced) ...[
@@ -650,10 +641,10 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: useThreeLevelPackaging,
-            activeTrackColor: _accent.withValues(alpha: 0.5),
-            activeThumbColor: _accent,
-            title: const Text('Conditionnement 3 niveaux', style: TextStyle(color: _text, fontSize: 13)),
-            subtitle: const Text('Paquet → sachet → pièce', style: TextStyle(color: _textDim, fontSize: 11)),
+            activeTrackColor: _p.accent.withValues(alpha: 0.5),
+            activeThumbColor: _p.accent,
+            title:  Text('Conditionnement 3 niveaux', style: TextStyle(color: _p.text, fontSize: 13)),
+            subtitle:  Text('Paquet → sachet → pièce', style: TextStyle(color: _p.textDim, fontSize: 11)),
             onChanged: (v) => setState(() {
               useThreeLevelPackaging = v;
               if (v) quantiteAchatController.clear();
@@ -674,17 +665,17 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
   Widget _recapCard() {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: _border)),
+      decoration: BoxDecoration(color: _p.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: _p.border)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Avant d\'enregistrer', style: GoogleFonts.plusJakartaSans(color: _text, fontWeight: FontWeight.w700, fontSize: 13)),
+          Text('Avant d\'enregistrer', style: GoogleFonts.plusJakartaSans(color: _p.text, fontWeight: FontWeight.w700, fontSize: 13)),
           const SizedBox(height: 10),
-          _recapLine('Produit', nomController.text.trim().isEmpty ? '—' : nomController.text.trim(), _accent),
-          _recapLine('Prix client', '${_parse(prixVenteUnitaireController.text).toStringAsFixed(0)} ${widget.devise} / $selectedUniteVente', _vente),
-          _recapLine('Il en reste', PackagingUtils.formatStock(ProduitModel(nom: '', stock: _stockBase(), quantiteParUnite: _quantiteParUnite(), uniteAchat: selectedUniteAchat, uniteVente: selectedUniteVente)), _stockColor),
+          _recapLine('Produit', nomController.text.trim().isEmpty ? '—' : nomController.text.trim(), _p.accent),
+          _recapLine('Prix client', '${_parse(prixVenteUnitaireController.text).toStringAsFixed(0)} ${widget.devise} / $selectedUniteVente', _p.success),
+          _recapLine('Il en reste', PackagingUtils.formatStock(ProduitModel(nom: '', stock: _stockBase(), quantiteParUnite: _quantiteParUnite(), uniteAchat: selectedUniteAchat, uniteVente: selectedUniteVente)), _p.info),
           if (_marge() != 0 || _parse(prixVenteUnitaireController.text) > 0)
-            _recapLine('Gain', ProduitUi.gainSimple(_marge(), widget.devise, selectedUniteVente), _marge() >= 0 ? _success : _danger),
+            _recapLine('Gain', ProduitUi.gainSimple(_marge(), widget.devise, selectedUniteVente), _marge() >= 0 ? _p.success : _p.danger),
         ],
       ),
     );
@@ -702,7 +693,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(k, style: TextStyle(color: c, fontSize: 10, fontWeight: FontWeight.w700)),
-                  Text(v, style: const TextStyle(color: _text, fontSize: 12, fontWeight: FontWeight.w600, height: 1.35)),
+                  Text(v, style:  TextStyle(color: _p.text, fontSize: 12, fontWeight: FontWeight.w600, height: 1.35)),
                 ],
               ),
             ),
@@ -716,18 +707,18 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: (ok ? _success : _danger).withValues(alpha: 0.1),
+        color: (ok ? _p.success : _p.danger).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: (ok ? _success : _danger).withValues(alpha: 0.25)),
+        border: Border.all(color: (ok ? _p.success : _p.danger).withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
-          Icon(ok ? Icons.trending_up_rounded : Icons.trending_down_rounded, color: ok ? _success : _danger, size: 18),
+          Icon(ok ? Icons.trending_up_rounded : Icons.trending_down_rounded, color: ok ? _p.success : _p.danger, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               ProduitUi.gainSimple(m, widget.devise, selectedUniteVente),
-              style: TextStyle(color: ok ? _success : _danger, fontSize: 12, fontWeight: FontWeight.w600, height: 1.35),
+              style: TextStyle(color: ok ? _p.success : _p.danger, fontSize: 12, fontWeight: FontWeight.w600, height: 1.35),
             ),
           ),
         ],
@@ -738,16 +729,16 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
   Widget _buildBottomBar() {
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + MediaQuery.paddingOf(context).bottom),
-      decoration: const BoxDecoration(
-        color: _surface,
-        border: Border(top: BorderSide(color: _border)),
+      decoration:  BoxDecoration(
+        color: _p.surface,
+        border: Border(top: BorderSide(color: _p.border)),
       ),
       child: Row(
         children: [
           if (_step > 0)
             TextButton(
               onPressed: _saving ? null : () => _goStep(_step - 1),
-              child: const Text('Retour', style: TextStyle(color: _textMute)),
+              child:  Text('Retour', style: TextStyle(color: _p.textMute)),
             )
           else
             const SizedBox(width: 8),
@@ -759,13 +750,13 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
                   : () {
                       if (_validateStep(_step)) _goStep(_step + 1);
                     },
-              style: FilledButton.styleFrom(backgroundColor: _accent, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
-              child: const Text('Continuer'),
+              style: FilledButton.styleFrom(backgroundColor: _p.accent, padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
+              child: Text('Continuer'),
             )
           else
             FilledButton(
               onPressed: _saving ? null : _save,
-              style: FilledButton.styleFrom(backgroundColor: _accent, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
+              style: FilledButton.styleFrom(backgroundColor: _p.accent, padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
               child: _saving
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : Text(_isEdit ? 'Enregistrer' : 'Ajouter au catalogue'),
@@ -776,7 +767,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
   }
 
   TextStyle _labelStyle({Color? color}) =>
-      GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: color ?? _textMute);
+      GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: color ?? _p.textMute);
 
   Widget _field(
     TextEditingController c,
@@ -788,13 +779,14 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
     String? suffix,
     int maxLines = 1,
     bool autofocus = false,
-    Color accent = _accent,
+    Color? accent,
     ValueChanged<String>? onChanged,
   }) {
+    final fieldAccent = accent ?? _p.accent;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: _labelStyle(color: accent)),
+        Text(label, style: _labelStyle(color: fieldAccent)),
         const SizedBox(height: 6),
         TextField(
           controller: c,
@@ -802,19 +794,19 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
           maxLines: maxLines,
           keyboardType: keyboard,
           inputFormatters: formatters,
-          style: const TextStyle(color: _text, fontSize: 15),
+          style:  TextStyle(color: _p.text, fontSize: 15),
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: _textDim, fontSize: 13),
+            hintStyle:  TextStyle(color: _p.textDim, fontSize: 13),
             filled: true,
-            fillColor: _surface,
-            prefixIcon: Icon(icon, size: 18, color: accent),
+            fillColor: _p.surface,
+            prefixIcon: Icon(icon, size: 18, color: fieldAccent),
             suffixText: suffix,
-            suffixStyle: TextStyle(color: accent.withValues(alpha: 0.85), fontSize: 12, fontWeight: FontWeight.w600),
+            suffixStyle: TextStyle(color: fieldAccent.withValues(alpha: 0.85), fontSize: 12, fontWeight: FontWeight.w600),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: accent.withValues(alpha: 0.28))),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: accent, width: 1.5)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: fieldAccent.withValues(alpha: 0.28))),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: fieldAccent, width: 1.5)),
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           ),
         ),
@@ -835,13 +827,13 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
         final active = selected == v;
         final label = labels?[v] ?? v;
         return FilterChip(
-          label: Text(label, style: TextStyle(fontSize: 12, color: active ? _accentSoft : _textMute)),
+          label: Text(label, style: TextStyle(fontSize: 12, color: active ? _p.accentSoft : _p.textMute)),
           selected: active,
           onSelected: (_) => onSelect(v),
-          backgroundColor: _surface,
-          selectedColor: _accent.withValues(alpha: 0.18),
-          checkmarkColor: _accentSoft,
-          side: BorderSide(color: active ? _accent.withValues(alpha: 0.45) : _border),
+          backgroundColor: _p.surface,
+          selectedColor: _p.accent.withValues(alpha: 0.18),
+          checkmarkColor: _p.accentSoft,
+          side: BorderSide(color: active ? _p.accent.withValues(alpha: 0.45) : _p.border),
           padding: EdgeInsets.zero,
           visualDensity: VisualDensity.compact,
         );
@@ -855,21 +847,21 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
       runSpacing: 8,
       children: [
         FilterChip(
-          label: const Text('Sans catégorie', style: TextStyle(fontSize: 12)),
+          label: Text('Sans catégorie', style: TextStyle(fontSize: 12)),
           selected: selectedProductCategoryId == null,
           onSelected: (_) => setState(() => selectedProductCategoryId = null),
-          backgroundColor: _surface,
-          selectedColor: _accent.withValues(alpha: 0.18),
-          side: BorderSide(color: selectedProductCategoryId == null ? _accent.withValues(alpha: 0.45) : _border),
+          backgroundColor: _p.surface,
+          selectedColor: _p.accent.withValues(alpha: 0.18),
+          side: BorderSide(color: selectedProductCategoryId == null ? _p.accent.withValues(alpha: 0.45) : _p.border),
         ),
         ...widget.categories.where((c) => c.id != null).map(
               (cat) => FilterChip(
-                label: Text(cat.nom, style: const TextStyle(fontSize: 12)),
+                label: Text(cat.nom, style: TextStyle(fontSize: 12)),
                 selected: selectedProductCategoryId == cat.id,
                 onSelected: (_) => setState(() => selectedProductCategoryId = cat.id),
-                backgroundColor: _surface,
-                selectedColor: _accent.withValues(alpha: 0.18),
-                side: BorderSide(color: selectedProductCategoryId == cat.id ? _accent.withValues(alpha: 0.45) : _border),
+                backgroundColor: _p.surface,
+                selectedColor: _p.accent.withValues(alpha: 0.18),
+                side: BorderSide(color: selectedProductCategoryId == cat.id ? _p.accent.withValues(alpha: 0.45) : _p.border),
               ),
             ),
       ],
@@ -898,15 +890,15 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: active ? _accent.withValues(alpha: 0.12) : _surface,
+                  color: active ? _p.accent.withValues(alpha: 0.12) : _p.surface,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: active ? _accent.withValues(alpha: 0.4) : _border),
+                  border: Border.all(color: active ? _p.accent.withValues(alpha: 0.4) : _p.border),
                 ),
                 child: Column(
                   children: [
-                    Icon(icon, size: 16, color: active ? _accentSoft : _textMute),
+                    Icon(icon, size: 16, color: active ? _p.accentSoft : _p.textMute),
                     const SizedBox(height: 4),
-                    Text(label, style: TextStyle(fontSize: 10, color: active ? _accentSoft : _textMute, fontWeight: active ? FontWeight.w600 : FontWeight.w500)),
+                    Text(label, style: TextStyle(fontSize: 10, color: active ? _p.accentSoft : _p.textMute, fontWeight: active ? FontWeight.w600 : FontWeight.w500)),
                   ],
                 ),
               ),

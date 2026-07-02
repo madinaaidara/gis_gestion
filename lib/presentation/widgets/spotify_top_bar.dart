@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/theme/app_colors.dart' as th;
+import '../../core/theme/gis_palette.dart';
+import '../../core/theme/gis_theme_ext.dart';
 import 'global_search_overlay.dart';
 import 'responsive_navigation.dart';
 import 'gis_assistant_host.dart';
+import 'theme_toggle_button.dart';
 
 /// Barre supérieure style Spotify : titre page + recherche globale.
 class SpotifyTopBar extends StatelessWidget {
@@ -37,15 +39,19 @@ class SpotifyTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = GisPalette.of(context);
     final width = MediaQuery.sizeOf(context).width;
     final compact = width < 900;
 
     return Container(
-      height: compact ? 52 : 64,
-      padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 24),
-      decoration: const BoxDecoration(
-        color: Color(0xFF050505),
-        border: Border(bottom: BorderSide(color: Color(0xFF1A1A1A), width: 1)),
+      height: compact ? 56 : 64,
+      padding: EdgeInsets.symmetric(horizontal: compact ? 16 : 28),
+      decoration: BoxDecoration(
+        color: p.topBarBg,
+        border: Border(bottom: BorderSide(color: p.border)),
+        boxShadow: p.isDark(context)
+            ? null
+            : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 2))],
       ),
       child: Row(
         children: [
@@ -53,13 +59,14 @@ class SpotifyTopBar extends StatelessWidget {
             Text(
               _pageTitle,
               style: GoogleFonts.plusJakartaSans(
-                color: Colors.white,
+                color: p.text,
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.5,
               ),
             ),
           const Spacer(),
+          const ThemeToggleButton(compact: true),
           const GisAssistantToolbarButton(),
           _SearchPill(compact: compact, onTap: () => _openSearch(context)),
         ],
@@ -83,10 +90,11 @@ class _SearchPillState extends State<_SearchPill> {
 
   @override
   Widget build(BuildContext context) {
+    final p = GisPalette.of(context);
     if (widget.compact) {
       return IconButton(
         onPressed: widget.onTap,
-        icon: const Icon(Icons.search_rounded, color: Colors.white),
+        icon: Icon(Icons.search_rounded, color: p.text),
         tooltip: 'Rechercher (Ctrl+K)',
       );
     }
@@ -102,17 +110,19 @@ class _SearchPillState extends State<_SearchPill> {
           height: 40,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            color: _hovered ? Colors.white : th.AppColors.sidebarText,
-            borderRadius: BorderRadius.circular(20),
+            color: p.isDark(context) ? p.surfaceHi : p.surface,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: _hovered ? p.accent.withValues(alpha: 0.4) : p.border),
+            boxShadow: p.isDark(context) ? null : p.cardShadow(context).take(1).toList(),
           ),
           child: Row(
             children: [
-              Icon(Icons.search_rounded, size: 20, color: _hovered ? Colors.black : th.AppColors.sidebarBg),
+              Icon(Icons.search_rounded, size: 20, color: p.textMute),
               const SizedBox(width: 10),
               Text(
                 'Rechercher…  Ctrl+K',
                 style: GoogleFonts.plusJakartaSans(
-                  color: _hovered ? Colors.black54 : th.AppColors.sidebarBg.withValues(alpha: 0.7),
+                  color: p.textMute,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                 ),

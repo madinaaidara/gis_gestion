@@ -70,7 +70,7 @@ class AppColors {
   static const Color primaryBlue = Color(0xFF3B82F6);
 
   // ============================================
-  // THÈME SIDEBAR (Spotify-like dark premium)
+  // THÈME SIDEBAR (Spotify — sombre par défaut, clair si bascule)
   // ============================================
 
   static const Color sidebarBg = Color(0xFF000000);
@@ -313,7 +313,7 @@ class AppDecorations {
 
   // Bouton primaire avec dégradé
   static BoxDecoration buttonPrimary = BoxDecoration(
-    gradient: const LinearGradient(colors: AppColors.primaryGradient),
+    gradient: LinearGradient(colors: AppColors.primaryGradient),
     borderRadius: BorderRadius.circular(12),
     boxShadow: [
       BoxShadow(

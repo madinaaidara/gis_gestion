@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_surface.dart';
+import '../../core/theme/gis_palette.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -42,6 +44,8 @@ class GisAssistantHost extends StatefulWidget {
 }
 
 class _GisAssistantHostState extends State<GisAssistantHost> {
+  GisPalette get _p => GisPalette.of(context);
+
   bool _isOpen = false;
 
   Future<void> _ensureInitialized() async {
@@ -112,11 +116,10 @@ class GisAssistantToolbarButton extends StatelessWidget {
 
   const GisAssistantToolbarButton({super.key, this.compact = false});
 
-  static const Color _accent = Color(0xFF7C5CFF);
-  static const Color _accentSoft = Color(0xFFB8A4FF);
 
   @override
   Widget build(BuildContext context) {
+    final p = GisPalette.of(context);
     final scope = GisAssistantScope.maybeOf(context);
     if (scope == null) return const SizedBox.shrink();
 
@@ -128,7 +131,7 @@ class GisAssistantToolbarButton extends StatelessWidget {
         tooltip: 'Assistant Gis',
         icon: Icon(
           Icons.auto_awesome_rounded,
-          color: isActive ? _accentSoft : Colors.white,
+          color: isActive ? p.accentSoft : p.text,
         ),
       );
     }
@@ -136,7 +139,7 @@ class GisAssistantToolbarButton extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(right: 10),
       child: Material(
-        color: isActive ? _accent.withValues(alpha: 0.22) : const Color(0xFF1A1A1A),
+        color: isActive ? p.accent.withValues(alpha: 0.22) : p.surfaceHi,
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           onTap: scope.toggle,
@@ -147,7 +150,7 @@ class GisAssistantToolbarButton extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isActive ? _accent.withValues(alpha: 0.5) : const Color(0xFF2A2A2E),
+                color: isActive ? p.accent.withValues(alpha: 0.5) : p.border,
               ),
             ),
             child: Row(
@@ -156,13 +159,13 @@ class GisAssistantToolbarButton extends StatelessWidget {
                 Icon(
                   Icons.auto_awesome_rounded,
                   size: 18,
-                  color: isActive ? _accentSoft : Colors.white.withValues(alpha: 0.85),
+                  color: isActive ? p.accentSoft : p.textMute,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   'Assistant',
                   style: GoogleFonts.plusJakartaSans(
-                    color: isActive ? _accentSoft : Colors.white.withValues(alpha: 0.85),
+                    color: isActive ? p.accentSoft : p.textMute,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -186,8 +189,8 @@ class _AssistantChatWindow extends StatefulWidget {
 }
 
 class _AssistantChatWindowState extends State<_AssistantChatWindow> {
-  static const Color _bg = Color(0xFF050505);
-  static const Color _accent = Color(0xFF7C5CFF);
+  GisPalette get _p => GisPalette.of(context);
+
 
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
@@ -236,13 +239,13 @@ class _AssistantChatWindowState extends State<_AssistantChatWindow> {
         elevation: 28,
         shadowColor: Colors.black.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(16),
-        color: _bg,
+        color: _p.bg,
         child: Container(
           width: panelWidth,
           height: panelHeight,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFF222226)),
+            border: Border.all(color:  GisPalette.of(context).border),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
@@ -257,9 +260,9 @@ class _AssistantChatWindowState extends State<_AssistantChatWindow> {
                       isLoading: vm.isLoading,
                     ),
                     if (vm.isLoading)
-                      const Expanded(
+                       Expanded(
                         child: Center(
-                          child: CircularProgressIndicator(strokeWidth: 2, color: _accent),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: _p.accent),
                         ),
                       )
                     else ...[
@@ -313,20 +316,14 @@ class _ChatHeader extends StatelessWidget {
     required this.isLoading,
   });
 
-  static const Color _surfaceHi = Color(0xFF161618);
-  static const Color _border = Color(0xFF222226);
-  static const Color _text = Color(0xFFF5F5F7);
-  static const Color _textMute = Color(0xFF8A8A92);
-  static const Color _accent = Color(0xFF7C5CFF);
-  static const Color _accentSoft = Color(0xFFB8A4FF);
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-      decoration: const BoxDecoration(
-        color: _surfaceHi,
-        border: Border(bottom: BorderSide(color: _border)),
+      decoration:  BoxDecoration(
+        color: GisPalette.of(context).surfaceHi,
+        border: Border(bottom: BorderSide(color: GisPalette.of(context).border)),
       ),
       child: Row(
         children: [
@@ -335,11 +332,11 @@ class _ChatHeader extends StatelessWidget {
             height: 36,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [_accent.withValues(alpha: 0.35), _accent.withValues(alpha: 0.1)],
+                colors: [GisPalette.of(context).accent.withValues(alpha: 0.35), GisPalette.of(context).accent.withValues(alpha: 0.1)],
               ),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.auto_awesome_rounded, color: _accentSoft, size: 18),
+            child:  Icon(Icons.auto_awesome_rounded, color: GisPalette.of(context).accentSoft, size: 18),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -349,26 +346,26 @@ class _ChatHeader extends StatelessWidget {
                 Text(
                   'Assistant Gis',
                   style: GoogleFonts.plusJakartaSans(
-                    color: _text,
+                    color: GisPalette.of(context).text,
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 Text(
                   isLoading ? 'Chargement…' : 'Prévisions · Tendances · Conseils',
-                  style: const TextStyle(color: _textMute, fontSize: 10),
+                  style:  TextStyle(color: GisPalette.of(context).textMute, fontSize: 10),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, color: _textMute, size: 20),
+            icon:  Icon(Icons.delete_outline_rounded, color: GisPalette.of(context).textMute, size: 20),
             tooltip: 'Effacer',
             onPressed: isLoading ? null : onClear,
             visualDensity: VisualDensity.compact,
           ),
           IconButton(
-            icon: const Icon(Icons.close_rounded, color: _textMute, size: 22),
+            icon:  Icon(Icons.close_rounded, color: GisPalette.of(context).textMute, size: 22),
             tooltip: 'Fermer',
             onPressed: onClose,
             visualDensity: VisualDensity.compact,
@@ -402,9 +399,9 @@ class _SuggestionChips extends StatelessWidget {
         itemBuilder: (_, i) {
           final q = questions[i];
           return ActionChip(
-            label: Text(q, style: const TextStyle(fontSize: 10, color: Color(0xFFF5F5F7))),
-            backgroundColor: const Color(0xFF0E0E10),
-            side: const BorderSide(color: Color(0xFF222226)),
+            label: Text(q, style: TextStyle(fontSize: 10, color: GisPalette.of(context).text)),
+            backgroundColor:  GisPalette.of(context).surface,
+            side: BorderSide(color: GisPalette.of(context).border),
             padding: EdgeInsets.zero,
             visualDensity: VisualDensity.compact,
             onPressed: enabled ? () => onTap(q) : null,
@@ -428,19 +425,14 @@ class _ChatInputBar extends StatelessWidget {
     required this.onSend,
   });
 
-  static const Color _bg = Color(0xFF050505);
-  static const Color _border = Color(0xFF222226);
-  static const Color _text = Color(0xFFF5F5F7);
-  static const Color _textMute = Color(0xFF8A8A92);
-  static const Color _accent = Color(0xFF7C5CFF);
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-      decoration: const BoxDecoration(
-        color: Color(0xFF0E0E10),
-        border: Border(top: BorderSide(color: _border)),
+      decoration:  BoxDecoration(
+        color: GisPalette.of(context).surface,
+        border: Border(top: BorderSide(color: GisPalette.of(context).border)),
       ),
       child: Row(
         children: [
@@ -448,24 +440,24 @@ class _ChatInputBar extends StatelessWidget {
             child: TextField(
               controller: controller,
               enabled: enabled,
-              style: const TextStyle(color: _text, fontSize: 13),
+              style:  TextStyle(color: GisPalette.of(context).text, fontSize: 13),
               decoration: InputDecoration(
                 hintText: 'Posez votre question…',
-                hintStyle: TextStyle(color: _textMute.withValues(alpha: 0.75), fontSize: 12),
+                hintStyle: TextStyle(color: GisPalette.of(context).textMute.withValues(alpha: 0.75), fontSize: 12),
                 filled: true,
-                fillColor: _bg,
+                fillColor: GisPalette.of(context).bg,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: _border),
+                  borderSide:  BorderSide(color: GisPalette.of(context).border),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: _border),
+                  borderSide:  BorderSide(color: GisPalette.of(context).border),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: _accent.withValues(alpha: 0.55)),
+                  borderSide: BorderSide(color: GisPalette.of(context).accent.withValues(alpha: 0.55)),
                 ),
               ),
               textInputAction: TextInputAction.send,
@@ -474,7 +466,7 @@ class _ChatInputBar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Material(
-            color: _accent,
+            color: GisPalette.of(context).accent,
             borderRadius: BorderRadius.circular(14),
             child: InkWell(
               onTap: enabled && !isThinking ? onSend : null,
@@ -487,7 +479,7 @@ class _ChatInputBar extends StatelessWidget {
                         padding: EdgeInsets.all(13),
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
-                    : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                    : Icon(Icons.send_rounded, color: Colors.white, size: 20),
               ),
             ),
           ),
@@ -502,13 +494,13 @@ class _ThinkingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.only(left: 4, bottom: 8),
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
       child: Row(
         children: [
-          SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF7C5CFF))),
-          SizedBox(width: 8),
-          Text('Analyse en cours…', style: TextStyle(color: Color(0xFF8A8A92), fontSize: 12)),
+          SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: GisPalette.of(context).accent)),
+          const SizedBox(width: 8),
+          Text('Analyse en cours…', style: TextStyle(color: GisPalette.of(context).textMute, fontSize: 12)),
         ],
       ),
     );
@@ -520,10 +512,6 @@ class _AssistantBubble extends StatelessWidget {
 
   const _AssistantBubble({required this.message});
 
-  static const Color _surfaceHi = Color(0xFF161618);
-  static const Color _border = Color(0xFF222226);
-  static const Color _text = Color(0xFFF5F5F7);
-  static const Color _accent = Color(0xFF7C5CFF);
 
   @override
   Widget build(BuildContext context) {
@@ -536,16 +524,16 @@ class _AssistantBubble extends StatelessWidget {
         constraints: BoxConstraints(maxWidth: maxW.clamp(240, 320)),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: isUser ? _accent.withValues(alpha: 0.2) : _surfaceHi,
+          color: isUser ? GisPalette.of(context).accent.withValues(alpha: 0.2) : GisPalette.of(context).surfaceHi,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(14),
             topRight: const Radius.circular(14),
             bottomLeft: Radius.circular(isUser ? 14 : 4),
             bottomRight: Radius.circular(isUser ? 4 : 14),
           ),
-          border: Border.all(color: isUser ? _accent.withValues(alpha: 0.35) : _border),
+          border: Border.all(color: isUser ? GisPalette.of(context).accent.withValues(alpha: 0.35) : GisPalette.of(context).border),
         ),
-        child: _FormattedAssistantText(text: message.text, color: _text),
+        child: _FormattedAssistantText(text: message.text, color: GisPalette.of(context).text),
       ),
     );
   }

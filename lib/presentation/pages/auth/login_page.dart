@@ -7,6 +7,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/auth/oauth_helper.dart';
+import '../../../core/theme/gis_palette.dart';
+import '../../../core/theme/gis_theme_ext.dart';
+import '../../widgets/theme_toggle_button.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -16,16 +19,8 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
-  static const Color _bg = Color(0xFF050505);
-  static const Color _surface = Color(0xFF0E0E10);
-  static const Color _surfaceHi = Color(0xFF161618);
-  static const Color _border = Color(0xFF222226);
-  static const Color _text = Color(0xFFF5F5F7);
-  static const Color _textMute = Color(0xFF8A8A92);
-  static const Color _textDim = Color(0xFF5C5C63);
-  static const Color _accent = Color(0xFF7C5CFF);
-  static const Color _accentSoft = Color(0xFFB8A4FF);
-  static const Color _danger = Color(0xFFFF4D6D);
+  GisPalette get _p => GisPalette.of(context);
+
 
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
@@ -140,13 +135,13 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       HapticFeedback.lightImpact();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text(
+          content: Text(
             'Compte créé ! Vérifiez votre boîte mail pour confirmer, puis connectez-vous.',
             style: TextStyle(fontSize: 13),
           ),
-          backgroundColor: _surfaceHi,
+          backgroundColor: _p.surfaceHi,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: _border)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side:  BorderSide(color: _p.border)),
           margin: const EdgeInsets.all(16),
           duration: const Duration(seconds: 6),
         ),
@@ -186,29 +181,29 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     final sent = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: _surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: _border)),
-        title: Text('Mot de passe oublié', style: GoogleFonts.plusJakartaSans(color: _text, fontWeight: FontWeight.w700)),
+        backgroundColor: _p.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side:  BorderSide(color: _p.border)),
+        title: Text('Mot de passe oublié', style: GoogleFonts.plusJakartaSans(color: _p.text, fontWeight: FontWeight.w700)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Entrez votre email pour recevoir un lien de réinitialisation.', style: TextStyle(color: _textMute, fontSize: 13)),
+             Text('Entrez votre email pour recevoir un lien de réinitialisation.', style: TextStyle(color: _p.textMute, fontSize: 13)),
             const SizedBox(height: 16),
             TextField(
               controller: emailCtrl,
               keyboardType: TextInputType.emailAddress,
-              style: const TextStyle(color: _text),
+              style:  TextStyle(color: _p.text),
               decoration: _inputDecoration('Email', Icons.email_outlined),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler', style: TextStyle(color: _textMute))),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child:  Text('Annuler', style: TextStyle(color: _p.textMute))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: _accent),
-            child: const Text('Envoyer'),
+            style: FilledButton.styleFrom(backgroundColor: _p.accent),
+            child: Text('Envoyer'),
           ),
         ],
       ),
@@ -221,8 +216,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Email de réinitialisation envoyé'),
-            backgroundColor: _surfaceHi,
+            content: Text('Email de réinitialisation envoyé'),
+            backgroundColor: _p.surfaceHi,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
@@ -238,14 +233,14 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.error_outline_rounded, color: _danger, size: 18),
+             Icon(Icons.error_outline_rounded, color: _p.danger, size: 18),
             const SizedBox(width: 10),
-            Expanded(child: Text(message, style: const TextStyle(fontSize: 13, color: _text))),
+            Expanded(child: Text(message, style:  TextStyle(fontSize: 13, color: _p.text))),
           ],
         ),
-        backgroundColor: _surface,
+        backgroundColor: _p.surface,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: _border)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side:  BorderSide(color: _p.border)),
         margin: const EdgeInsets.all(16),
       ),
     );
@@ -293,31 +288,31 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: _surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: _border)),
-        title: Text('Google non configuré', style: GoogleFonts.plusJakartaSans(color: _text, fontWeight: FontWeight.w700)),
-        content: const SingleChildScrollView(
+        backgroundColor: _p.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side:  BorderSide(color: _p.border)),
+        title: Text('Google non configuré', style: GoogleFonts.plusJakartaSans(color: _p.text, fontWeight: FontWeight.w700)),
+        content:  SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Activez Google dans votre projet Supabase :', style: TextStyle(color: _textMute, fontSize: 13)),
+              Text('Activez Google dans votre projet Supabase :', style: TextStyle(color: _p.textMute, fontSize: 13)),
               SizedBox(height: 12),
-              Text('1. dashboard.supabase.com → votre projet', style: TextStyle(color: _text, fontSize: 12)),
-              Text('2. Authentication → Providers → Google', style: TextStyle(color: _text, fontSize: 12)),
-              Text('3. Activer + Client ID & Secret (Google Cloud)', style: TextStyle(color: _text, fontSize: 12)),
+              Text('1. dashboard.supabase.com → votre projet', style: TextStyle(color: _p.text, fontSize: 12)),
+              Text('2. Authentication → Providers → Google', style: TextStyle(color: _p.text, fontSize: 12)),
+              Text('3. Activer + Client ID & Secret (Google Cloud)', style: TextStyle(color: _p.text, fontSize: 12)),
               Text('   → Le Client Secret est OBLIGATOIRE (champ vide = erreur)', style: TextStyle(color: Color(0xFFFF4D6D), fontSize: 11)),
               SizedBox(height: 8),
-              Text('4. Redirect URL Supabase :', style: TextStyle(color: _textMute, fontSize: 11)),
-              Text('guissgestion://login-callback', style: TextStyle(color: _accentSoft, fontSize: 11)),
+              Text('4. Redirect URL Supabase :', style: TextStyle(color: _p.textMute, fontSize: 11)),
+              Text('guissgestion://login-callback', style: TextStyle(color: _p.accentSoft, fontSize: 11)),
             ],
           ),
         ),
         actions: [
           FilledButton(
             onPressed: () => Navigator.pop(ctx),
-            style: FilledButton.styleFrom(backgroundColor: _accent),
-            child: const Text('Compris'),
+            style: FilledButton.styleFrom(backgroundColor: _p.accent),
+            child: Text('Compris'),
           ),
         ],
       ),
@@ -327,14 +322,14 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   InputDecoration _inputDecoration(String hint, IconData icon, {Widget? suffix}) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: _textDim, fontSize: 14),
-      prefixIcon: Icon(icon, size: 18, color: _accentSoft),
+      hintStyle:  TextStyle(color: _p.textDim, fontSize: 14),
+      prefixIcon: Icon(icon, size: 18, color: _p.accentSoft),
       suffixIcon: suffix,
       filled: true,
-      fillColor: _surfaceHi,
+      fillColor: _p.surfaceHi,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _border)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _accent, width: 1.5)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide:  BorderSide(color: _p.border)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide:  BorderSide(color: _p.accent, width: 1.5)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
     );
   }
@@ -363,17 +358,22 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent),
+      value: (Theme.of(context).brightness == Brightness.dark
+              ? SystemUiOverlayStyle.light
+              : SystemUiOverlayStyle.dark)
+          .copyWith(statusBarColor: Colors.transparent),
       child: Scaffold(
-        backgroundColor: _bg,
-        body: Stack(
-          children: [
-            _AmbientBackground(anim: _ambientAnim),
-            LayoutBuilder(
-              builder: (context, constraints) =>
-                  constraints.maxWidth >= 900 ? _buildDesktopLayout() : _buildMobileLayout(),
-            ),
-          ],
+        backgroundColor: _p.bg,
+        body: ThemeToggleOverlay(
+          child: Stack(
+            children: [
+              _AmbientBackground(anim: _ambientAnim),
+              LayoutBuilder(
+                builder: (context, constraints) =>
+                    constraints.maxWidth >= 900 ? _buildDesktopLayout() : _buildMobileLayout(),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -427,14 +427,14 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 34,
                           fontWeight: FontWeight.w800,
-                          color: _text,
+                          color: _p.text,
                           letterSpacing: -1,
                         ),
                       )),
                       const SizedBox(height: 8),
                       _stagger(2, Text(
                         'La solution professionnelle pour\npiloter votre boutique.',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 15, color: _textMute, height: 1.5),
+                        style: GoogleFonts.plusJakartaSans(fontSize: 15, color: _p.textMute, height: 1.5),
                       )),
                       const SizedBox(height: 28),
                       _stagger(3, _buildFeatureList(compact: constraints.maxHeight < 720)),
@@ -449,8 +449,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           flex: 4,
           child: Container(
             decoration: BoxDecoration(
-              color: _surface.withValues(alpha: 0.85),
-              border: const Border(left: BorderSide(color: _border)),
+              color: _p.surface.withValues(alpha: 0.85),
+              border:  Border(left: BorderSide(color: _p.border)),
             ),
             child: Center(
               child: SingleChildScrollView(
@@ -495,19 +495,19 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: _accent.withValues(alpha: 0.12),
+                  color: _p.accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _accent.withValues(alpha: 0.2)),
+                  border: Border.all(color: _p.accent.withValues(alpha: 0.2)),
                 ),
-                child: Icon(f.$1, color: _accentSoft, size: 20),
+                child: Icon(f.$1, color: _p.accentSoft, size: 20),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(f.$2, style: const TextStyle(color: _text, fontWeight: FontWeight.w600, fontSize: 14)),
-                    Text(f.$3, style: const TextStyle(color: _textDim, fontSize: 12)),
+                    Text(f.$2, style:  TextStyle(color: _p.text, fontWeight: FontWeight.w600, fontSize: 14)),
+                    Text(f.$3, style:  TextStyle(color: _p.textDim, fontSize: 12)),
                   ],
                 ),
               ),
@@ -526,7 +526,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           style: GoogleFonts.plusJakartaSans(
             fontSize: compact ? 26 : 28,
             fontWeight: FontWeight.w800,
-            color: _text,
+            color: _p.text,
             letterSpacing: -0.5,
           ),
         ),
@@ -534,7 +534,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         Text(
           _isSignUp ? 'Rejoignez Gis Gestion en quelques secondes' : 'Accédez à votre espace gérant',
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 14, color: _textMute),
+          style:  TextStyle(fontSize: 14, color: _p.textMute),
         ),
       ],
     );
@@ -545,10 +545,10 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [_accent, Color(0xFF5B3FD4)]),
+        gradient: _p.accentLinear(),
         borderRadius: BorderRadius.circular(size * 0.28),
         boxShadow: [
-          BoxShadow(color: _accent.withValues(alpha: 0.35), blurRadius: 28, offset: const Offset(0, 8)),
+          BoxShadow(color: _p.accent.withValues(alpha: 0.35), blurRadius: 28, offset: const Offset(0, 8)),
         ],
       ),
       child: ClipRRect(
@@ -566,9 +566,9 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     return Container(
       constraints: const BoxConstraints(maxWidth: 300),
       decoration: BoxDecoration(
-        color: _surfaceHi,
+        color: _p.surfaceHi,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _border),
+        border: Border.all(color: _p.border),
       ),
       padding: const EdgeInsets.all(4),
       child: Row(
@@ -587,10 +587,10 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 11),
         decoration: BoxDecoration(
-          color: active ? _accent : Colors.transparent,
+          color: active ? _p.accent : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           boxShadow: active
-              ? [BoxShadow(color: _accent.withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 2))]
+              ? [BoxShadow(color: _p.accent.withValues(alpha: 0.35), blurRadius: 8, offset: Offset(0, 2))]
               : null,
         ),
         child: Text(
@@ -598,7 +598,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 13,
-            color: active ? Colors.white : _textMute,
+            color: active ? Colors.white : _p.textMute,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -611,15 +611,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     if (!bordered) return form;
 
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _border),
-        boxShadow: [
-          BoxShadow(color: _accent.withValues(alpha: 0.06), blurRadius: 24, offset: const Offset(0, 8)),
-        ],
-      ),
+      padding: const EdgeInsets.all(24),
+      decoration: _p.cardDecoration(context, radius: 20),
       child: form,
     );
   }
@@ -661,7 +654,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (_) => _submit(),
             suffixIcon: IconButton(
-              icon: Icon(_obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: _textMute, size: 18),
+              icon: Icon(_obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: _p.textMute, size: 18),
               onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
             ),
             validator: (v) {
@@ -676,7 +669,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: _isLoading ? null : _forgotPassword,
-                child: const Text('Mot de passe oublié ?', style: TextStyle(color: _accentSoft, fontSize: 12)),
+                child:  Text('Mot de passe oublié ?', style: TextStyle(color: _p.accentSoft, fontSize: 12)),
               ),
             ),
           ],
@@ -696,19 +689,19 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   Widget _buildOrDivider() {
     return Row(
       children: [
-        Expanded(child: Container(height: 1, color: _border)),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12),
-          child: Text('ou continuer avec', style: TextStyle(color: _textDim, fontSize: 11)),
+        Expanded(child: Container(height: 1, color: _p.border)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text('ou continuer avec', style: TextStyle(color: _p.textDim, fontSize: 11)),
         ),
-        Expanded(child: Container(height: 1, color: _border)),
+        Expanded(child: Container(height: 1, color: _p.border)),
       ],
     );
   }
 
   Widget _buildGoogleButton() {
     return Material(
-      color: _surfaceHi,
+      color: _p.surfaceHi,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: _isLoading ? null : _signInWithGoogle,
@@ -717,7 +710,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           height: 48,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _border),
+            border: Border.all(color: _p.border),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -729,7 +722,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Center(
+                child: Center(
                   child: Text(
                     'G',
                     style: TextStyle(
@@ -744,7 +737,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
               Text(
                 'Continuer avec Google',
                 style: GoogleFonts.plusJakartaSans(
-                  color: _text,
+                  color: _p.text,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -761,12 +754,12 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       height: 50,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: _isLoading ? [_textDim, _textDim] : [_accent, const Color(0xFF5B3FD4)],
+          colors: _isLoading ? [_p.textDim, _p.textDim] : [_p.accent, Color(0xFF5B3FD4)],
         ),
         borderRadius: BorderRadius.circular(12),
         boxShadow: _isLoading
             ? null
-            : [BoxShadow(color: _accent.withValues(alpha: 0.4), blurRadius: 16, offset: const Offset(0, 6))],
+            : [BoxShadow(color: _p.accent.withValues(alpha: 0.4), blurRadius: 16, offset: Offset(0, 6))],
       ),
       child: Material(
         color: Colors.transparent,
@@ -800,7 +793,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _textDim)),
+        Text(label, style:  TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _p.textDim)),
         const SizedBox(height: 6),
         TextFormField(
           controller: controller,
@@ -808,7 +801,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           obscureText: obscureText,
           textInputAction: textInputAction,
           onFieldSubmitted: onFieldSubmitted,
-          style: const TextStyle(fontSize: 14, color: _text),
+          style:  TextStyle(fontSize: 14, color: _p.text),
           validator: validator,
           decoration: _inputDecoration(label, icon, suffix: suffixIcon),
         ),
@@ -820,7 +813,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     return Text(
       '© ${DateTime.now().year} Gis Gestion · Gestion commerciale',
       textAlign: TextAlign.center,
-      style: const TextStyle(color: _textDim, fontSize: 11),
+      style:  TextStyle(color: _p.textDim, fontSize: 11),
     );
   }
 }
@@ -848,7 +841,7 @@ class _AmbientBackground extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
-                      colors: [const Color(0xFF7C5CFF).withValues(alpha: 0.2), Colors.transparent],
+                      colors: [const Color(0xFF7C5CFF).withValues(alpha: 0.12), Colors.transparent],
                     ),
                   ),
                 ),

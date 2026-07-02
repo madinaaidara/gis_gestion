@@ -1,5 +1,7 @@
 // lib/presentation/pages/credits/credits_page.dart
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_surface.dart';
+import '../../../core/theme/gis_palette.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -11,6 +13,7 @@ import '../../../data/repositories/shops_repository.dart';
 import '../../../data/repositories/products_repository.dart';
 import '../../../data/repositories/ventes_repository.dart';
 import '../../viewmodels/products_viewmodel.dart';
+import '../../widgets/gis_ui_kit.dart';
 
 class CreditPage extends StatefulWidget {
   const CreditPage({super.key});
@@ -20,20 +23,9 @@ class CreditPage extends StatefulWidget {
 }
 
 class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateMixin {
+  GisPalette get _p => GisPalette.of(context);
+
   // ===== PALETTE DARK PREMIUM =====
-  static const Color _bg = Color(0xFF050505);
-  static const Color _surface = Color(0xFF0E0E10);
-  static const Color _surfaceHi = Color(0xFF161618);
-  static const Color _border = Color(0xFF222226);
-  static const Color _borderHi = Color(0xFF2E2E33);
-  static const Color _text = Color(0xFFF5F5F7);
-  static const Color _textMute = Color(0xFF8A8A92);
-  static const Color _textDim = Color(0xFF5C5C63);
-  static const Color _accent = Color(0xFF7C5CFF);
-  static const Color _danger = Color(0xFFFF4D6D);
-  static const Color _success = Color(0xFF22C55E);
-  static const Color _warning = Color(0xFFF59E0B);
-  static const Color _gold = Color(0xFFFFC857);
 
   final searchController = TextEditingController();
   final amountController = TextEditingController();
@@ -137,11 +129,11 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
   Color _creditStatutColor(CreditModel credit) {
     switch (credit.statut) {
       case 'paye':
-        return _success;
+        return _p.success;
       case 'annule':
-        return _textDim;
+        return _p.textDim;
       default:
-        return _warning;
+        return _p.warning;
     }
   }
 
@@ -152,19 +144,19 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
     final confirme = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: _surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: _border)),
-        title: const Text('Annuler ce dossier crédit ?', style: TextStyle(color: _text, fontSize: 16)),
+        backgroundColor: _p.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: _p.border)),
+        title:  Text('Annuler ce dossier crédit ?', style: TextStyle(color: _p.text, fontSize: 16)),
         content: Text(
           'Le dossier et la vente liée seront marqués « Annulés ».\n'
           'Le stock sera remis en rayon.${acompte > 0 ? '\n\nAcompte déjà reçu : ${_formatNumber(acompte)} ${devise ?? 'FCFA'} — à rembourser au client.' : ''}',
-          style: TextStyle(color: _textMute, fontSize: 13),
+          style: TextStyle(color: _p.textMute, fontSize: 13),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Non', style: TextStyle(color: _textMute))),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Non', style: TextStyle(color: _p.textMute))),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Oui, annuler', style: TextStyle(color: _danger, fontWeight: FontWeight.bold)),
+            child: Text('Oui, annuler', style: TextStyle(color: _p.danger, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -217,10 +209,10 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
             padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
             child: Container(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-              decoration: const BoxDecoration(
-                color: _surface,
+              decoration:  BoxDecoration(
+                color: _p.surface,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                border: Border(top: BorderSide(color: _border)),
+                border: Border(top: BorderSide(color: _p.border)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -230,7 +222,7 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
                     child: Container(
                       width: 40,
                       height: 4,
-                      decoration: BoxDecoration(color: _borderHi, borderRadius: BorderRadius.circular(2)),
+                      decoration: BoxDecoration(color: _p.borderStrong, borderRadius: BorderRadius.circular(2)),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -240,11 +232,11 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: _gold.withOpacity(0.1),
+                          color: _p.gold.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _gold.withOpacity(0.2)),
+                          border: Border.all(color: _p.gold.withOpacity(0.2)),
                         ),
-                        child: const Icon(Icons.payments_rounded, color: _gold, size: 24),
+                        child:  Icon(Icons.payments_rounded, color: _p.gold, size: 24),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -253,11 +245,11 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
                           children: [
                             Text(
                               credit.clientNom,
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _text),
+                              style:  TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _p.text),
                             ),
                             Text(
                               'Reste : ${_formatNumber(credit.reste)} ${devise ?? 'FCFA'}',
-                              style: const TextStyle(fontSize: 12, color: _gold),
+                              style:  TextStyle(fontSize: 12, color: _p.gold),
                             ),
                           ],
                         ),
@@ -267,9 +259,9 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      const Text(
+                       Text(
                         'Montant du paiement',
-                        style: TextStyle(color: _textMute, fontSize: 12, fontWeight: FontWeight.w600),
+                        style: TextStyle(color: _p.textMute, fontSize: 12, fontWeight: FontWeight.w600),
                       ),
                       const Spacer(),
                       InkWell(
@@ -278,13 +270,13 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: _gold.withOpacity(0.12),
+                            color: _p.gold.withOpacity(0.12),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: _gold.withOpacity(0.25)),
+                            border: Border.all(color: _p.gold.withOpacity(0.25)),
                           ),
                           child: Text(
                             'Tout payer',
-                            style: TextStyle(color: _gold, fontSize: 11, fontWeight: FontWeight.w600),
+                            style: TextStyle(color: _p.gold, fontSize: 11, fontWeight: FontWeight.w600),
                           ),
                         ),
                       ),
@@ -295,23 +287,23 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
                     controller: amountController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     autofocus: true,
-                    style: const TextStyle(color: _text, fontSize: 16, fontWeight: FontWeight.bold),
+                    style:  TextStyle(color: _p.text, fontSize: 16, fontWeight: FontWeight.bold),
                     onChanged: (_) => setModalState(() {}),
                     decoration: InputDecoration(
                       hintText: '0',
-                      hintStyle: TextStyle(color: _textDim, fontSize: 16),
+                      hintStyle: TextStyle(color: _p.textDim, fontSize: 16),
                       prefixText: '${devise ?? 'FCFA'} ',
-                      prefixStyle: const TextStyle(color: _accent, fontSize: 14, fontWeight: FontWeight.bold),
+                      prefixStyle:  TextStyle(color: _p.accent, fontSize: 14, fontWeight: FontWeight.bold),
                       filled: true,
-                      fillColor: _surfaceHi,
+                      fillColor: _p.surfaceHi,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: _border),
+                        borderSide: BorderSide(color: _p.border),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: _accent),
+                        borderSide: BorderSide(color: _p.accent),
                       ),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     ),
@@ -320,17 +312,17 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: _gold.withOpacity(0.05),
+                      color: _p.gold.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: _gold.withOpacity(0.1)),
+                      border: Border.all(color: _p.gold.withOpacity(0.1)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Nouveau reste', style: TextStyle(color: _textMute, fontSize: 12)),
+                         Text('Nouveau reste', style: TextStyle(color: _p.textMute, fontSize: 12)),
                         Text(
                           _formatNumber(nouveauReste),
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _gold),
+                          style:  TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _p.gold),
                         ),
                       ],
                     ),
@@ -340,7 +332,7 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
                         'Le montant dépasse le reste à payer',
-                        style: TextStyle(color: _danger, fontSize: 11),
+                        style: TextStyle(color: _p.danger, fontSize: 11),
                       ),
                     ),
                   const SizedBox(height: 20),
@@ -351,10 +343,10 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
                           onPressed: () => Navigator.pop(modalContext),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            side: BorderSide(color: _border),
+                            side: BorderSide(color: _p.border),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
-                          child: const Text('Annuler'),
+                          child: Text('Annuler'),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -364,11 +356,11 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
                           onPressed: peutEncaisser ? () => _effectuerPaiement(credit) : null,
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            backgroundColor: _gold,
-                            disabledBackgroundColor: _surfaceHi,
+                            backgroundColor: _p.gold,
+                            disabledBackgroundColor: _p.surfaceHi,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
-                          child: const Text('Encaisser', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: Text('Encaisser', style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ],
@@ -394,9 +386,9 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: _surface,
+          color: _p.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: _border),
+          border: Border.all(color: _p.border),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -406,7 +398,7 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
               child: Container(
                 width: 40,
                 height: 4,
-                decoration: BoxDecoration(color: _borderHi, borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(color: _p.borderStrong, borderRadius: BorderRadius.circular(2)),
               ),
             ),
             const SizedBox(height: 20),
@@ -429,10 +421,10 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(credit.clientNom, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _text)),
+                      Text(credit.clientNom, style:  TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _p.text)),
                       Text(
                         credit.telephoneClient ?? 'Pas de téléphone',
-                        style: TextStyle(fontSize: 12, color: _textMute),
+                        style: TextStyle(fontSize: 12, color: _p.textMute),
                       ),
                     ],
                   ),
@@ -455,13 +447,13 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
               ],
             ),
             const SizedBox(height: 20),
-            Divider(color: _border),
+            Divider(color: _p.border),
             const SizedBox(height: 16),
             _buildDetailRow("Montant total", "${_formatNumber(credit.montantTotal)} $devise", Icons.receipt_long_rounded),
             const SizedBox(height: 12),
-            _buildDetailRow("Déjà payé", "${_formatNumber(credit.montantPaye)} $devise", Icons.payments_rounded, color: _success),
+            _buildDetailRow("Déjà payé", "${_formatNumber(credit.montantPaye)} $devise", Icons.payments_rounded, color: _p.success),
             const SizedBox(height: 12),
-            _buildDetailRow("Reste à payer", "${_formatNumber(credit.reste)} $devise", Icons.account_balance_wallet_rounded, color: _gold),
+            _buildDetailRow("Reste à payer", "${_formatNumber(credit.reste)} $devise", Icons.account_balance_wallet_rounded, color: _p.gold),
             const SizedBox(height: 12),
             _buildDetailRow("Date", _formatDate(credit.dateCredit), Icons.calendar_today_rounded),
             const SizedBox(height: 20),
@@ -475,10 +467,10 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
                     _ouvrirModalPaiement(credit);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _gold,
+                    backgroundColor: _p.gold,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Encaisser un paiement', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text('Encaisser un paiement', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(height: 8),
@@ -489,10 +481,10 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
                 height: 48,
                 child: OutlinedButton.icon(
                   onPressed: () => _confirmerAnnulationCredit(credit),
-                  icon: Icon(Icons.cancel_outlined, size: 18, color: _danger),
-                  label: Text('Annuler le dossier', style: TextStyle(color: _danger, fontWeight: FontWeight.w600)),
+                  icon: Icon(Icons.cancel_outlined, size: 18, color: _p.danger),
+                  label: Text('Annuler le dossier', style: TextStyle(color: _p.danger, fontWeight: FontWeight.w600)),
                   style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: _danger.withOpacity(0.5)),
+                    side: BorderSide(color: _p.danger.withOpacity(0.5)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
@@ -504,8 +496,8 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
               height: 44,
               child: OutlinedButton(
                 onPressed: () => Navigator.pop(modalContext),
-                style: OutlinedButton.styleFrom(side: BorderSide(color: _border), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                child: const Text("Fermer"),
+                style: OutlinedButton.styleFrom(side: BorderSide(color: _p.border), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                child: Text("Fermer"),
               ),
             ),
           ],
@@ -519,15 +511,15 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
       children: [
         Container(
           padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(color: _accent.withOpacity(0.08), borderRadius: BorderRadius.circular(6)),
-          child: Icon(icon, size: 16, color: _accent),
+          decoration: BoxDecoration(color: _p.accent.withOpacity(0.08), borderRadius: BorderRadius.circular(6)),
+          child: Icon(icon, size: 16, color: _p.accent),
         ),
         const SizedBox(width: 10),
-        Text(label, style: TextStyle(fontSize: 12, color: _textMute)),
+        Text(label, style: TextStyle(fontSize: 12, color: _p.textMute)),
         const Spacer(),
         Text(
           value,
-          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color ?? _text),
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color ?? _p.text),
         ),
       ],
     );
@@ -552,7 +544,7 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isSuccess ? _success : _danger,
+        backgroundColor: isSuccess ? _p.success : _p.danger,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: const EdgeInsets.all(16),
@@ -568,7 +560,7 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
     final isMobile = MediaQuery.of(context).size.width < 800;
 
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: _p.bg,
       body: SafeArea(
         child: Column(
           children: [
@@ -577,7 +569,7 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
             _buildTabBar(),
             Expanded(
               child: vm.isLoading
-                  ? const Center(child: CircularProgressIndicator(color: _accent))
+                  ?  Center(child: CircularProgressIndicator(color: _p.accent))
                   : filteredCredits.isEmpty
                       ? _buildEmptyState()
                       : ListView.builder(
@@ -593,118 +585,39 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
   }
 
   Widget _buildHeader(CreditsViewModel vm, bool isMobile) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: _border))),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [_accent, Color(0xFF5B3FE6)]),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.credit_card_rounded, color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: 12),
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('CRÉDITS', style: TextStyle(color: _text, fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 1.2)),
-                  Text('Suivi des dettes clients', style: TextStyle(color: _textMute, fontSize: 11)),
-                ],
-              ),
-              const Spacer(),
-              _buildIconButton(Icons.refresh_rounded, _loadData),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (isMobile)
-            Column(
-              children: [
-                Row(
-                  children: [
-                    _buildStatCard('En cours', vm.dossiersEnCours.toString(), _warning),
-                    const SizedBox(width: 8),
-                    _buildStatCard('Soldés', vm.dossiersPayes.toString(), _success),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _buildStatCard('Dossiers', vm.totalDossiers.toString(), _accent),
-                    const SizedBox(width: 8),
-                    _buildStatCard('Dette totale', '${_formatNumber(vm.detteTotale)} ${devise ?? ''}', _gold),
-                  ],
-                ),
-              ],
-            )
-          else
-            Row(
-              children: [
-                _buildStatCard('Dossiers', vm.totalDossiers.toString(), _accent),
-                const SizedBox(width: 8),
-                _buildStatCard('En cours', vm.dossiersEnCours.toString(), _warning),
-                const SizedBox(width: 8),
-                _buildStatCard('Soldés', vm.dossiersPayes.toString(), _success),
-                const SizedBox(width: 8),
-                _buildStatCard('Dette totale', '${_formatNumber(vm.detteTotale)} ${devise ?? ''}', _gold),
-              ],
-            ),
-        ],
-      ),
+    return GisPageHeader(
+      icon: Icons.credit_card_rounded,
+      title: 'Crédits',
+      subtitle: 'Suivi des dettes clients',
+      onRefresh: _loadData,
+      metrics: [
+        GisMetricTile(label: 'Dossiers', value: vm.totalDossiers.toString(), color: _p.accent),
+        GisMetricTile(label: 'En cours', value: vm.dossiersEnCours.toString(), color: _p.warning),
+        GisMetricTile(label: 'Soldés', value: vm.dossiersPayes.toString(), color: _p.success),
+        GisMetricTile(
+          label: 'Dette totale',
+          value: '${_formatNumber(vm.detteTotale)} ${devise ?? ''}',
+          color: _p.gold,
+        ),
+      ],
     );
   }
 
   Widget _buildStatCard(String label, String value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(8), border: Border.all(color: _border)),
-        child: Column(
-          children: [
-            Text(label, style: TextStyle(fontSize: 9, color: _textDim)),
-            Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color), overflow: TextOverflow.ellipsis),
-          ],
-        ),
-      ),
-    );
+    return GisMetricTile(label: label, value: value, color: color);
   }
 
   Widget _buildIconButton(IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: 32, height: 32,
-        decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(8), border: Border.all(color: _border)),
-        child: Icon(icon, color: _text, size: 16),
-      ),
-    );
+    return GisIconButton(icon: icon, onTap: onTap);
   }
 
   Widget _buildSearchBar() {
-    return Padding(
+    return GisSearchField(
+      controller: searchController,
+      hint: 'Rechercher par nom ou téléphone…',
       padding: const EdgeInsets.all(12),
-      child: Container(
-        height: 40,
-        decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(10), border: Border.all(color: _border)),
-        child: TextField(
-          controller: searchController,
-          onChanged: (v) => context.read<CreditsViewModel>().updateSearchQuery(v.trim()),
-          style: const TextStyle(color: _text, fontSize: 13),
-          decoration: InputDecoration(
-            hintText: "Rechercher par nom ou téléphone...",
-            hintStyle: const TextStyle(fontSize: 12, color: _textDim),
-            border: InputBorder.none,
-            prefixIcon: const Icon(Icons.search, size: 16, color: _textMute),
-            contentPadding: const EdgeInsets.symmetric(vertical: 8),
-          ),
-        ),
-      ),
+      height: 42,
+      onChanged: (v) => context.read<CreditsViewModel>().updateSearchQuery(v.trim()),
     );
   }
 
@@ -713,23 +626,23 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: _surfaceHi,
+        color: _p.surfaceHi,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _border),
+        border: Border.all(color: _p.border),
       ),
       child: TabBar(
         controller: _tabController,
         indicator: BoxDecoration(
-          color: _accent.withOpacity(0.2),
+          color: _p.accent.withOpacity(0.2),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: _accent.withOpacity(0.35)),
+          border: Border.all(color: _p.accent.withOpacity(0.35)),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
-        labelColor: _accent,
-        unselectedLabelColor: _textMute,
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+        labelColor: _p.accent,
+        unselectedLabelColor: _p.textMute,
+        labelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        unselectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         tabs: const [
           Tab(height: 34, text: 'Tous'),
           Tab(height: 34, text: 'En cours'),
@@ -740,21 +653,10 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 64, height: 64,
-            decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: _border)),
-            child: Icon(Icons.credit_card_off_rounded, size: 28, color: _textDim),
-          ),
-          const SizedBox(height: 16),
-          const Text("Aucun crédit", style: TextStyle(color: _textMute, fontSize: 14, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          const Text("Les crédits clients apparaîtront ici", style: TextStyle(color: _textDim, fontSize: 12)),
-        ],
-      ),
+    return const GisEmptyState(
+      icon: Icons.credit_card_off_rounded,
+      title: 'Aucun crédit',
+      subtitle: 'Les crédits clients apparaîtront ici',
     );
   }
 
@@ -770,9 +672,9 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
       child: Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: _surface,
+        color: _p.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _border),
+        border: Border.all(color: _p.border),
       ),
       child: Column(
         children: [
@@ -792,7 +694,7 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
             ),
             title: Text(
               credit.clientNom,
-              style: const TextStyle(color: _text, fontSize: 14, fontWeight: FontWeight.w600),
+              style:  TextStyle(color: _p.text, fontSize: 14, fontWeight: FontWeight.w600),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -801,12 +703,12 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
               children: [
                 Text(
                   credit.telephoneClient ?? 'Pas de téléphone',
-                  style: TextStyle(color: _textMute, fontSize: 11),
+                  style: TextStyle(color: _p.textMute, fontSize: 11),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   _formatDate(credit.dateCredit),
-                  style: TextStyle(color: _textDim, fontSize: 10),
+                  style: TextStyle(color: _p.textDim, fontSize: 10),
                 ),
               ],
             ),
@@ -825,7 +727,7 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
                 const SizedBox(height: 2),
                 Text(
                   isAnnule ? 'Dossier clos' : 'sur ${_formatNumber(credit.montantTotal)} $devise',
-                  style: const TextStyle(color: _textDim, fontSize: 9),
+                  style:  TextStyle(color: _p.textDim, fontSize: 9),
                 ),
               ],
             ),
@@ -835,7 +737,7 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: _surfaceHi,
+                color: _p.surfaceHi,
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(12),
                   bottomRight: Radius.circular(12),
@@ -848,8 +750,8 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
                         value: pourcentage.clamp(0.0, 1.0).toDouble(),
-                        backgroundColor: _border,
-                        color: _gold,
+                        backgroundColor: _p.border,
+                        color: _p.gold,
                         minHeight: 4,
                       ),
                     ),
@@ -857,7 +759,7 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
                   const SizedBox(width: 8),
                   Text(
                     "${(pourcentage * 100).toStringAsFixed(0)}%",
-                    style: TextStyle(color: _gold, fontSize: 10, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: _p.gold, fontSize: 10, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(width: 8),
                   InkWell(
@@ -866,15 +768,15 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: _gold.withOpacity(0.15),
+                        color: _p.gold.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.payments_rounded, size: 12, color: _gold),
+                          Icon(Icons.payments_rounded, size: 12, color: _p.gold),
                           const SizedBox(width: 4),
-                          Text("Payer", style: TextStyle(color: _gold, fontSize: 11, fontWeight: FontWeight.w600)),
+                          Text("Payer", style: TextStyle(color: _p.gold, fontSize: 11, fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ),

@@ -90,7 +90,7 @@ class MetricCircleCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white70,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
@@ -104,7 +104,7 @@ class MetricCircleCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   Text(
                     '$value$suffix',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -128,7 +128,7 @@ class MetricCircleCard extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const Text(
+                        Text(
                           ' vs période précédente',
                           style: TextStyle(
                             color: Colors.white54,

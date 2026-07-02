@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/gis_palette.dart';
+import '../../widgets/theme_toggle_button.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -15,17 +17,8 @@ class SetupBoutiquePage extends StatefulWidget {
 }
 
 class _SetupBoutiquePageState extends State<SetupBoutiquePage> with TickerProviderStateMixin {
-  static const Color _bg = Color(0xFF050505);
-  static const Color _surface = Color(0xFF0E0E10);
-  static const Color _surfaceHi = Color(0xFF161618);
-  static const Color _border = Color(0xFF222226);
-  static const Color _text = Color(0xFFF5F5F7);
-  static const Color _textMute = Color(0xFF8A8A92);
-  static const Color _textDim = Color(0xFF5C5C63);
-  static const Color _accent = Color(0xFF7C5CFF);
-  static const Color _accentSoft = Color(0xFFB8A4FF);
-  static const Color _success = Color(0xFF22C55E);
-  static const Color _danger = Color(0xFFFF4D6D);
+  GisPalette get _p => GisPalette.of(context);
+
 
   final _formKey = GlobalKey<FormState>();
   final _nomBoutiqueController = TextEditingController();
@@ -153,14 +146,14 @@ class _SetupBoutiquePageState extends State<SetupBoutiquePage> with TickerProvid
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.error_outline_rounded, color: _danger, size: 18),
+             Icon(Icons.error_outline_rounded, color: _p.danger, size: 18),
             const SizedBox(width: 10),
-            Expanded(child: Text(message, style: const TextStyle(fontSize: 13, color: _text))),
+            Expanded(child: Text(message, style:  TextStyle(fontSize: 13, color: _p.text))),
           ],
         ),
-        backgroundColor: _surface,
+        backgroundColor: _p.surface,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: _border)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side:  BorderSide(color: _p.border)),
         margin: const EdgeInsets.all(16),
       ),
     );
@@ -192,14 +185,16 @@ class _SetupBoutiquePageState extends State<SetupBoutiquePage> with TickerProvid
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent),
       child: Scaffold(
-        backgroundColor: _bg,
-        body: Stack(
-          children: [
-            _AmbientBackground(anim: _ambientAnim),
-            LayoutBuilder(
-              builder: (context, c) => c.maxWidth >= 900 ? _buildDesktopLayout() : _buildMobileLayout(),
-            ),
-          ],
+        backgroundColor: _p.bg,
+        body: ThemeToggleOverlay(
+          child: Stack(
+            children: [
+              _AmbientBackground(anim: _ambientAnim),
+              LayoutBuilder(
+                builder: (context, c) => c.maxWidth >= 900 ? _buildDesktopLayout() : _buildMobileLayout(),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -242,12 +237,12 @@ class _SetupBoutiquePageState extends State<SetupBoutiquePage> with TickerProvid
                 const SizedBox(height: 28),
                 _stagger(1, Text(
                   'Bienvenue sur GIS Gestion',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 32, fontWeight: FontWeight.w800, color: _text, letterSpacing: -0.8),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 32, fontWeight: FontWeight.w800, color: _p.text, letterSpacing: -0.8),
                 )),
                 const SizedBox(height: 10),
                 _stagger(2, Text(
                   'Quelques informations pour\npersonnaliser votre espace.',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 15, color: _textMute, height: 1.5),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 15, color: _p.textMute, height: 1.5),
                 )),
                 const SizedBox(height: 32),
                 _stagger(3, _buildFeatureList()),
@@ -259,8 +254,8 @@ class _SetupBoutiquePageState extends State<SetupBoutiquePage> with TickerProvid
           flex: 4,
           child: Container(
             decoration: BoxDecoration(
-              color: _surface.withValues(alpha: 0.9),
-              border: const Border(left: BorderSide(color: _border)),
+              color: _p.surface.withValues(alpha: 0.9),
+              border:  Border(left: BorderSide(color: _p.border)),
             ),
             child: Center(
               child: SingleChildScrollView(
@@ -301,19 +296,19 @@ class _SetupBoutiquePageState extends State<SetupBoutiquePage> with TickerProvid
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: _accent.withValues(alpha: 0.12),
+                  color: _p.accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _accent.withValues(alpha: 0.2)),
+                  border: Border.all(color: _p.accent.withValues(alpha: 0.2)),
                 ),
-                child: Icon(f.$1, color: _accentSoft, size: 18),
+                child: Icon(f.$1, color: _p.accentSoft, size: 18),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(f.$2, style: const TextStyle(color: _text, fontWeight: FontWeight.w600, fontSize: 13)),
-                    Text(f.$3, style: const TextStyle(color: _textDim, fontSize: 11)),
+                    Text(f.$2, style:  TextStyle(color: _p.text, fontWeight: FontWeight.w600, fontSize: 13)),
+                    Text(f.$3, style:  TextStyle(color: _p.textDim, fontSize: 11)),
                   ],
                 ),
               ),
@@ -329,9 +324,9 @@ class _SetupBoutiquePageState extends State<SetupBoutiquePage> with TickerProvid
       width: size,
       height: size,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [_accent, Color(0xFF5B3FD4)]),
+        gradient:  LinearGradient(colors: [_p.accent, Color(0xFF5B3FD4)]),
         borderRadius: BorderRadius.circular(size * 0.28),
-        boxShadow: [BoxShadow(color: _accent.withValues(alpha: 0.35), blurRadius: 24, offset: const Offset(0, 8))],
+        boxShadow: [BoxShadow(color: _p.accent.withValues(alpha: 0.35), blurRadius: 24, offset: Offset(0, 8))],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(size * 0.26),
@@ -350,11 +345,11 @@ class _SetupBoutiquePageState extends State<SetupBoutiquePage> with TickerProvid
         Container(
           padding: EdgeInsets.all(compact ? 10 : 12),
           decoration: BoxDecoration(
-            color: _accent.withValues(alpha: 0.12),
+            color: _p.accent.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _accent.withValues(alpha: 0.25)),
+            border: Border.all(color: _p.accent.withValues(alpha: 0.25)),
           ),
-          child: Icon(Icons.store_rounded, color: _accentSoft, size: compact ? 20 : 24),
+          child: Icon(Icons.store_rounded, color: _p.accentSoft, size: compact ? 20 : 24),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -366,11 +361,11 @@ class _SetupBoutiquePageState extends State<SetupBoutiquePage> with TickerProvid
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: compact ? 18 : 20,
                   fontWeight: FontWeight.w800,
-                  color: _text,
+                  color: _p.text,
                   letterSpacing: -0.3,
                 ),
               ),
-              Text('Étape obligatoire après inscription', style: TextStyle(fontSize: compact ? 11 : 12, color: _textMute)),
+              Text('Étape obligatoire après inscription', style: TextStyle(fontSize: compact ? 11 : 12, color: _p.textMute)),
             ],
           ),
         ),
@@ -391,12 +386,12 @@ class _SetupBoutiquePageState extends State<SetupBoutiquePage> with TickerProvid
                 Container(
                   height: 4,
                   decoration: BoxDecoration(
-                    color: _accent.withValues(alpha: 0.85),
+                    color: _p.accent.withValues(alpha: 0.85),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text(labels[i], style: const TextStyle(color: _textDim, fontSize: 9, fontWeight: FontWeight.w600)),
+                Text(labels[i], style:  TextStyle(color: _p.textDim, fontSize: 9, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -411,10 +406,10 @@ class _SetupBoutiquePageState extends State<SetupBoutiquePage> with TickerProvid
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: _surface,
+        color: _p.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _border),
-        boxShadow: [BoxShadow(color: _accent.withValues(alpha: 0.06), blurRadius: 24, offset: const Offset(0, 8))],
+        border: Border.all(color: _p.border),
+        boxShadow: [BoxShadow(color: _p.accent.withValues(alpha: 0.06), blurRadius: 24, offset: Offset(0, 8))],
       ),
       child: form,
     );
@@ -478,9 +473,9 @@ class _SetupBoutiquePageState extends State<SetupBoutiquePage> with TickerProvid
   Widget _buildSectionTitle(String title) {
     return Row(
       children: [
-        Container(width: 3, height: 16, decoration: BoxDecoration(color: _accent, borderRadius: BorderRadius.circular(2))),
+        Container(width: 3, height: 16, decoration: BoxDecoration(color: _p.accent, borderRadius: BorderRadius.circular(2))),
         const SizedBox(width: 8),
-        Text(title, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: _textMute)),
+        Text(title, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: _p.textMute)),
       ],
     );
   }
@@ -498,24 +493,24 @@ class _SetupBoutiquePageState extends State<SetupBoutiquePage> with TickerProvid
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textDim)),
+        Text(label, style:  TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _p.textDim)),
         const SizedBox(height: 6),
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
           textInputAction: textInputAction,
           onFieldSubmitted: onFieldSubmitted,
-          style: const TextStyle(fontSize: 14, color: _text),
+          style:  TextStyle(fontSize: 14, color: _p.text),
           validator: validator,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(fontSize: 12, color: _textDim),
+            hintStyle:  TextStyle(fontSize: 12, color: _p.textDim),
             filled: true,
-            fillColor: _surfaceHi,
-            prefixIcon: Icon(icon, size: 18, color: _accentSoft),
+            fillColor: _p.surfaceHi,
+            prefixIcon: Icon(icon, size: 18, color: _p.accentSoft),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _border)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _accent, width: 1.5)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide:  BorderSide(color: _p.border)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide:  BorderSide(color: _p.accent, width: 1.5)),
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
           ),
         ),
@@ -527,9 +522,9 @@ class _SetupBoutiquePageState extends State<SetupBoutiquePage> with TickerProvid
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _surfaceHi,
+        color: _p.surfaceHi,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _accent.withValues(alpha: 0.5)),
+        border: Border.all(color: _p.accent.withValues(alpha: 0.5)),
       ),
       child: Row(
         children: [
@@ -537,21 +532,21 @@ class _SetupBoutiquePageState extends State<SetupBoutiquePage> with TickerProvid
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [_accent, Color(0xFF5B3FD4)]),
+              gradient:  LinearGradient(colors: [_p.accent, Color(0xFF5B3FD4)]),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Center(child: Text('F', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white))),
+            child: Center(child: Text('F', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white))),
           ),
           const SizedBox(width: 14),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text('Franc CFA', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: _text)),
-              Text('Devise par défaut · FCFA', style: TextStyle(fontSize: 11, color: _textMute)),
+            children: [
+              Text('Franc CFA', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: _p.text)),
+              Text('Devise par défaut · FCFA', style: TextStyle(fontSize: 11, color: _p.textMute)),
             ],
           ),
           const Spacer(),
-          Icon(Icons.check_circle_rounded, color: _accentSoft, size: 22),
+          Icon(Icons.check_circle_rounded, color: _p.accentSoft, size: 22),
         ],
       ),
     );
@@ -566,15 +561,15 @@ class _SetupBoutiquePageState extends State<SetupBoutiquePage> with TickerProvid
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isDone
-              ? [_success, const Color(0xFF16A34A)]
+              ? [_p.success, Color(0xFF16A34A)]
               : isSaving
-                  ? [_textDim, _textDim]
-                  : [_accent, const Color(0xFF5B3FD4)],
+                  ? [_p.textDim, _p.textDim]
+                  : [_p.accent, Color(0xFF5B3FD4)],
         ),
         borderRadius: BorderRadius.circular(12),
         boxShadow: isSaving || isDone
             ? null
-            : [BoxShadow(color: _accent.withValues(alpha: 0.4), blurRadius: 16, offset: const Offset(0, 6))],
+            : [BoxShadow(color: _p.accent.withValues(alpha: 0.4), blurRadius: 16, offset: Offset(0, 6))],
       ),
       child: Material(
         color: Colors.transparent,
@@ -595,7 +590,7 @@ class _SetupBoutiquePageState extends State<SetupBoutiquePage> with TickerProvid
                     ? Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                          Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
                           const SizedBox(width: 8),
                           Text('Boutique créée !', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.w700)),
                         ],
@@ -633,7 +628,7 @@ class _AmbientBackground extends StatelessWidget {
                   height: 200 * pulse,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: RadialGradient(colors: [const Color(0xFF7C5CFF).withValues(alpha: 0.18), Colors.transparent]),
+                    gradient: RadialGradient(colors: [GisPalette.of(context).accent.withValues(alpha: 0.18), Colors.transparent]),
                   ),
                 ),
               ),
@@ -645,7 +640,7 @@ class _AmbientBackground extends StatelessWidget {
                   height: 180,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: RadialGradient(colors: [const Color(0xFF22C55E).withValues(alpha: 0.08), Colors.transparent]),
+                    gradient: RadialGradient(colors: [ GisPalette.of(context).success.withValues(alpha: 0.08), Colors.transparent]),
                   ),
                 ),
               ),

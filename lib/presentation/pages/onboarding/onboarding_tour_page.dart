@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/gis_palette.dart';
+import '../../widgets/theme_toggle_button.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -30,9 +32,8 @@ class _OnboardingSlide {
 }
 
 class _OnboardingTourPageState extends State<OnboardingTourPage> with TickerProviderStateMixin {
-  static const Color _bg = Color(0xFF050505);
-  static const Color _text = Color(0xFFF5F5F7);
-  static const Color _textMute = Color(0xFF8A8A92);
+  GisPalette get _p => GisPalette.of(context);
+
 
   final PageController _pageController = PageController(viewportFraction: 1.0);
   late AnimationController _contentController;
@@ -40,14 +41,14 @@ class _OnboardingTourPageState extends State<OnboardingTourPage> with TickerProv
   int _currentPage = 0;
   double _pageOffset = 0;
 
-  static const _slides = [
+  List<_OnboardingSlide> get _slides => [
     _OnboardingSlide(
       image: 'assets/images/onboarding_dashboard.png',
       tag: 'Tableau de bord',
       title: 'Pilotez votre\nboutique en direct',
       subtitle: 'CA du jour, objectifs, alertes stock et actions rapides — tout est centralisé dès l\'ouverture.',
       bullets: ['Indicateurs en temps réel', 'Actions personnalisées', 'Vue d\'ensemble instantanée'],
-      accent: Color(0xFF7C5CFF),
+      accent: _p.accent,
     ),
     _OnboardingSlide(
       image: 'assets/images/onboarding_produits.png',
@@ -55,7 +56,7 @@ class _OnboardingTourPageState extends State<OnboardingTourPage> with TickerProv
       title: 'Maîtrisez\nvotre inventaire',
       subtitle: 'Catalogue, catégories, alertes rupture et réapprovisionnement — ne perdez plus de ventes faute de stock.',
       bullets: ['Alertes rupture & stock faible', 'Gestion par unités', 'Mise à jour automatique'],
-      accent: Color(0xFF22C55E),
+      accent: _p.success,
     ),
     _OnboardingSlide(
       image: 'assets/images/onboarding_ventes.png',
@@ -63,7 +64,7 @@ class _OnboardingTourPageState extends State<OnboardingTourPage> with TickerProv
       title: 'Encaissez\nen quelques secondes',
       subtitle: 'Ventes comptant ou crédit, panier multi-produits et historique complet pour un suivi sans faille.',
       bullets: ['Caisse ultra-rapide', 'Ventes à crédit', 'Restauration stock si annulation'],
-      accent: Color(0xFFF59E0B),
+      accent: _p.warning,
     ),
     _OnboardingSlide(
       image: 'assets/images/onboarding_stats.png',
@@ -71,7 +72,7 @@ class _OnboardingTourPageState extends State<OnboardingTourPage> with TickerProv
       title: 'Décidez avec\nvos chiffres',
       subtitle: 'Graphiques, calendrier des ventes, top produits et marges — comprenez ce qui fait grandir votre business.',
       bullets: ['Graphiques & diagrammes', 'Calendrier CA', 'Top produits du mois'],
-      accent: Color(0xFF06B6D4),
+      accent: const Color(0xFF06B6D4),
     ),
   ];
 
@@ -121,7 +122,7 @@ class _OnboardingTourPageState extends State<OnboardingTourPage> with TickerProv
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent),
       child: Scaffold(
-        backgroundColor: _bg,
+        backgroundColor: _p.bg,
         body: Stack(
           children: [
             PageView.builder(
@@ -137,9 +138,10 @@ class _OnboardingTourPageState extends State<OnboardingTourPage> with TickerProv
                   children: [
                     _TagChip(label: slide.tag, color: slide.accent),
                     const Spacer(),
+                    const ThemeToggleButton(compact: true),
                     TextButton(
                       onPressed: _finishTour,
-                      child: Text('Passer', style: GoogleFonts.plusJakartaSans(color: _textMute, fontWeight: FontWeight.w600)),
+                      child: Text('Passer', style: GoogleFonts.plusJakartaSans(color: _p.textMute, fontWeight: FontWeight.w600)),
                     ),
                   ],
                 ),
@@ -189,10 +191,10 @@ class _OnboardingTourPageState extends State<OnboardingTourPage> with TickerProv
                       end: Alignment.bottomCenter,
                       stops: const [0.0, 0.45, 0.75, 1.0],
                       colors: [
-                        _bg.withValues(alpha: 0.1),
+                        _p.bg.withValues(alpha: 0.1),
                         Colors.transparent,
-                        _bg.withValues(alpha: 0.85),
-                        _bg,
+                        _p.bg.withValues(alpha: 0.85),
+                        _p.bg,
                       ],
                     ),
                   ),
@@ -248,7 +250,7 @@ class _OnboardingTourPageState extends State<OnboardingTourPage> with TickerProv
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 32,
                       fontWeight: FontWeight.w800,
-                      color: _text,
+                      color: _p.text,
                       height: 1.1,
                       letterSpacing: -1,
                     ),
@@ -256,7 +258,7 @@ class _OnboardingTourPageState extends State<OnboardingTourPage> with TickerProv
                   const SizedBox(height: 12),
                   Text(
                     slide.subtitle,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 14, color: _textMute, height: 1.5),
+                    style: GoogleFonts.plusJakartaSans(fontSize: 14, color: _p.textMute, height: 1.5),
                   ),
                   const SizedBox(height: 18),
                   ...slide.bullets.map((b) => Padding(
@@ -272,7 +274,7 @@ class _OnboardingTourPageState extends State<OnboardingTourPage> with TickerProv
                             ),
                             const SizedBox(width: 10),
                             Expanded(
-                              child: Text(b, style: const TextStyle(color: _text, fontSize: 13, fontWeight: FontWeight.w500)),
+                              child: Text(b, style:  TextStyle(color: _p.text, fontSize: 13, fontWeight: FontWeight.w500)),
                             ),
                           ],
                         ),
