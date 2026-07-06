@@ -1,19 +1,22 @@
 // lib/presentation/pages/credits/credits_page.dart
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_surface.dart';
 import '../../../core/theme/gis_palette.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../data/models/credit_model.dart';
 import '../../viewmodels/credits_viewmodel.dart';
 import '../../../data/repositories/shops_repository.dart';
 import '../../../data/repositories/products_repository.dart';
 import '../../../data/repositories/ventes_repository.dart';
+import '../../../core/services/app_refresh_listener.dart';
+import '../../../core/services/app_refresh_notifier.dart';
+import '../../../core/utils/responsive_utils.dart';
 import '../../viewmodels/products_viewmodel.dart';
 import '../../widgets/gis_ui_kit.dart';
+import '../../widgets/gis_dashboard_widgets.dart';
 
 class CreditPage extends StatefulWidget {
   const CreditPage({super.key});
@@ -22,10 +25,14 @@ class CreditPage extends StatefulWidget {
   State<CreditPage> createState() => _CreditPageState();
 }
 
-class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateMixin {
+class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateMixin, AppRefreshListener {
   GisPalette get _p => GisPalette.of(context);
 
-  // ===== PALETTE DARK PREMIUM =====
+  @override
+  AppRefreshScope get refreshScope => AppRefreshScope.credits;
+
+  @override
+  void onAppRefresh() => _loadData();
 
   final searchController = TextEditingController();
   final amountController = TextEditingController();
@@ -108,6 +115,7 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
       Navigator.pop(context);
       _showSnackBar('Paiement enregistré', true);
       await _loadData();
+      refreshAppData(context);
     } else {
       _showSnackBar('Erreur lors du paiement', false);
     }
@@ -182,6 +190,7 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
       if (shopId != null) {
         await Provider.of<ProductsViewModel>(context, listen: false).reloadForShop(shopId!);
       }
+      refreshAppData(context);
     } else {
       _showSnackBar(result.message ?? 'Annulation impossible', false);
     }
@@ -555,100 +564,128 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    final vm = Provider.of<CreditsViewModel>(context);
+    final vm = context.watch<CreditsViewModel>();
     final filteredCredits = vm.filteredCredits;
-    final isMobile = MediaQuery.of(context).size.width < 800;
+    final pad = ResponsiveUtils.pageHorizontalPadding(context);
+    final bottomInset = ResponsiveUtils.scrollBottomInset(context);
 
     return Scaffold(
       backgroundColor: _p.bg,
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(vm, isMobile),
-            _buildSearchBar(),
-            _buildTabBar(),
-            Expanded(
-              child: vm.isLoading
-                  ?  Center(child: CircularProgressIndicator(color: _p.accent))
-                  : filteredCredits.isEmpty
-                      ? _buildEmptyState()
-                      : ListView.builder(
-                          padding: EdgeInsets.fromLTRB(12, 8, 12, isMobile ? 24 : 12),
-                          itemCount: filteredCredits.length,
-                          itemBuilder: (_, index) => _buildCreditCard(filteredCredits[index]),
-                        ),
-            ),
-          ],
+        child: RefreshIndicator(
+          color: _p.accent,
+          backgroundColor: _p.surface,
+          onRefresh: _loadData,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+            slivers: [
+              SliverToBoxAdapter(child: _buildHeader(vm)),
+              SliverToBoxAdapter(child: _buildSearchBar()),
+              SliverToBoxAdapter(child: _buildTabBar()),
+              SliverToBoxAdapter(child: _buildSummaryRow(vm)),
+              if (vm.isLoading)
+                SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator(color: _p.accent, strokeWidth: 2.5)),
+                )
+              else if (filteredCredits.isEmpty)
+                SliverFillRemaining(child: _buildEmptyState())
+              else
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(pad, 4, pad, bottomInset),
+                  sliver: SliverList.builder(
+                    itemCount: filteredCredits.length,
+                    itemBuilder: (_, index) => _buildCreditCard(filteredCredits[index]),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildHeader(CreditsViewModel vm, bool isMobile) {
-    return GisPageHeader(
-      icon: Icons.credit_card_rounded,
-      title: 'Crédits',
-      subtitle: 'Suivi des dettes clients',
-      onRefresh: _loadData,
-      metrics: [
-        GisMetricTile(label: 'Dossiers', value: vm.totalDossiers.toString(), color: _p.accent),
-        GisMetricTile(label: 'En cours', value: vm.dossiersEnCours.toString(), color: _p.warning),
-        GisMetricTile(label: 'Soldés', value: vm.dossiersPayes.toString(), color: _p.success),
-        GisMetricTile(
-          label: 'Dette totale',
-          value: '${_formatNumber(vm.detteTotale)} ${devise ?? ''}',
-          color: _p.gold,
+  String _formatMoney(double value, {bool compact = false}) {
+    final d = devise ?? 'FCFA';
+    if (compact) {
+      if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M $d';
+      if (value >= 1000) return '${(value / 1000).toStringAsFixed(0)}K $d';
+    }
+    return '${NumberFormat('#,##0', 'fr_FR').format(value.round())} $d';
+  }
+
+  Widget _buildSummaryRow(CreditsViewModel vm) {
+    final pad = ResponsiveUtils.pageHorizontalPadding(context);
+    final total = vm.totalDossiers;
+    final enCours = vm.dossiersEnCours;
+    final payes = vm.dossiersPayes;
+    final enCoursPct = total > 0 ? enCours / total : 0.0;
+    final payesPct = total > 0 ? payes / total : 0.0;
+
+    return GisFourKpiRow(
+      horizontalPadding: pad,
+      topPadding: 8,
+      cards: [
+        GisKpiCardItem(
+          label: 'Dette en cours',
+          value: _formatMoney(vm.detteTotale, compact: true),
+          footerLabel: enCours == 0
+              ? 'Aucun dossier actif'
+              : '$enCours dossier${enCours > 1 ? 's' : ''} à encaisser',
+          footerProgress: enCoursPct,
+          icon: Icons.account_balance_wallet_rounded,
+          gradient: const [Color(0xFFF59E0B), Color(0xFFB45309)],
+        ),
+        GisKpiCardItem(
+          label: 'Dossiers',
+          value: '$total',
+          footerLabel: 'Total enregistrés',
+          footerProgress: 1.0,
+          icon: Icons.folder_open_rounded,
+          gradient: const [Color(0xFF7C5CFF), Color(0xFF5B3FE6)],
+        ),
+        GisKpiCardItem(
+          label: 'En cours',
+          value: '$enCours',
+          footerLabel: enCours > 0 ? 'Encaissements attendus' : 'Aucun en cours',
+          footerProgress: enCoursPct,
+          icon: Icons.hourglass_top_rounded,
+          gradient: const [Color(0xFF3B82F6), Color(0xFF2563EB)],
+        ),
+        GisKpiCardItem(
+          label: 'Soldés',
+          value: '$payes',
+          footerLabel: payes > 0 ? 'Dettes réglées' : 'Aucun soldé',
+          footerProgress: payesPct,
+          icon: Icons.check_circle_rounded,
+          gradient: const [Color(0xFF22C55E), Color(0xFF16A34A)],
         ),
       ],
     );
   }
 
-  Widget _buildStatCard(String label, String value, Color color) {
-    return GisMetricTile(label: label, value: value, color: color);
-  }
-
-  Widget _buildIconButton(IconData icon, VoidCallback onTap) {
-    return GisIconButton(icon: icon, onTap: onTap);
+  Widget _buildHeader(CreditsViewModel vm) {
+    return GisPageHeader(
+      icon: Icons.credit_card_rounded,
+      title: '',
+      subtitle: 'Suivi des dettes clients · encaissements',
+      onRefresh: _loadData,
+    );
   }
 
   Widget _buildSearchBar() {
     return GisSearchField(
       controller: searchController,
       hint: 'Rechercher par nom ou téléphone…',
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       height: 42,
       onChanged: (v) => context.read<CreditsViewModel>().updateSearchQuery(v.trim()),
     );
   }
 
   Widget _buildTabBar() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: _p.surfaceHi,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _p.border),
-      ),
-      child: TabBar(
-        controller: _tabController,
-        indicator: BoxDecoration(
-          color: _p.accent.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: _p.accent.withOpacity(0.35)),
-        ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
-        labelColor: _p.accent,
-        unselectedLabelColor: _p.textMute,
-        labelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        unselectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-        tabs: const [
-          Tab(height: 34, text: 'Tous'),
-          Tab(height: 34, text: 'En cours'),
-          Tab(height: 34, text: 'Soldés'),
-        ],
-      ),
+    return GisSegmentedTabBar(
+      controller: _tabController,
+      labels: const ['Tous', 'En cours', 'Soldés'],
     );
   }
 
@@ -665,129 +702,82 @@ class _CreditPageState extends State<CreditPage> with SingleTickerProviderStateM
     final isAnnule = credit.statut == 'annule';
     final isEnCours = credit.statut == 'en_cours';
     final statutColor = _creditStatutColor(credit);
-    final pourcentage = credit.montantTotal > 0 ? (credit.montantPaye / credit.montantTotal) : 0;
+    final pourcentage = credit.montantTotal > 0 ? (credit.montantPaye / credit.montantTotal) : 0.0;
 
-    return Opacity(
-      opacity: isAnnule ? 0.55 : 1,
-      child: Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: _p.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _p.border),
-      ),
-      child: Column(
-        children: [
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            leading: Container(
-              width: 44, height: 44,
-              decoration: BoxDecoration(
-                color: statutColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                isPaye ? Icons.check_circle_rounded : Icons.credit_card_rounded,
-                color: statutColor,
-                size: 22,
-              ),
-            ),
-            title: Text(
-              credit.clientNom,
-              style:  TextStyle(color: _p.text, fontSize: 14, fontWeight: FontWeight.w600),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  credit.telephoneClient ?? 'Pas de téléphone',
-                  style: TextStyle(color: _p.textMute, fontSize: 11),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _formatDate(credit.dateCredit),
-                  style: TextStyle(color: _p.textDim, fontSize: 10),
-                ),
-              ],
-            ),
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  isAnnule ? _creditStatutLabel(credit) : '${_formatNumber(credit.reste)} $devise',
-                  style: TextStyle(
-                    color: statutColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  isAnnule ? 'Dossier clos' : 'sur ${_formatNumber(credit.montantTotal)} $devise',
-                  style:  TextStyle(color: _p.textDim, fontSize: 9),
-                ),
-              ],
-            ),
-            onTap: () => _afficherDetails(credit),
-          ),
-          if (isEnCours) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: _p.surfaceHi,
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(12),
-                  bottomRight: Radius.circular(12),
+    Widget? footer;
+    if (isEnCours) {
+      footer = Container(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: pourcentage.clamp(0.0, 1.0),
+                  backgroundColor: _p.border,
+                  color: _p.gold,
+                  minHeight: 5,
                 ),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: pourcentage.clamp(0.0, 1.0).toDouble(),
-                        backgroundColor: _p.border,
-                        color: _p.gold,
-                        minHeight: 4,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    "${(pourcentage * 100).toStringAsFixed(0)}%",
-                    style: TextStyle(color: _p.gold, fontSize: 10, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(width: 8),
-                  InkWell(
-                    onTap: () => _ouvrirModalPaiement(credit),
-                    borderRadius: BorderRadius.circular(6),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: _p.gold.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.payments_rounded, size: 12, color: _p.gold),
-                          const SizedBox(width: 4),
-                          Text("Payer", style: TextStyle(color: _p.gold, fontSize: 11, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+            ),
+            const SizedBox(width: 10),
+            Text(
+              '${(pourcentage * 100).toStringAsFixed(0)}%',
+              style: TextStyle(color: _p.gold, fontSize: 11, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(width: 8),
+            FilledButton.icon(
+              onPressed: () => _ouvrirModalPaiement(credit),
+              icon: const Icon(Icons.payments_rounded, size: 14),
+              label: const Text('Encaisser'),
+              style: FilledButton.styleFrom(
+                backgroundColor: _p.gold,
+                foregroundColor: Colors.black87,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                visualDensity: VisualDensity.compact,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
           ],
+        ),
+      );
+    }
+
+    return GisDenseListRow(
+      muted: isAnnule,
+      onTap: () => _afficherDetails(credit),
+      leading: GisListAvatar(
+        icon: isPaye ? Icons.check_circle_rounded : Icons.credit_card_rounded,
+        color: statutColor,
+      ),
+      title: credit.clientNom,
+      subtitle: credit.telephoneClient ?? 'Pas de téléphone',
+      meta: _formatDate(credit.dateCredit),
+      trailing: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            isAnnule
+                ? _creditStatutLabel(credit)
+                : '${_formatNumber(isEnCours ? credit.reste : credit.montantTotal)} ${devise ?? ''}',
+            style: GoogleFonts.plusJakartaSans(
+              color: statutColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 4),
+          GisStatusBadge(
+            label: _creditStatutLabel(credit),
+            color: statutColor,
+            icon: isPaye ? Icons.check_rounded : (isAnnule ? Icons.block_rounded : Icons.schedule_rounded),
+          ),
         ],
       ),
-      ),
+      footer: footer,
     );
   }
 }

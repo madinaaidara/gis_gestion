@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/app_colors.dart' as th;
+import '../../core/utils/responsive_utils.dart';
 import '../../core/theme/app_surface.dart';
 import '../../core/theme/gis_palette.dart';
 
@@ -81,7 +82,7 @@ class _ResponsiveNavigationState extends State<ResponsiveNavigation> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth >= 1200) {
+        if (constraints.maxWidth >= AppBreakpoints.sidebar) {
           return Scaffold(
             backgroundColor: AppSurface.bg,
             body: Row(
@@ -337,7 +338,6 @@ class _DesktopSidebarState extends State<_DesktopSidebar> with SingleTickerProvi
                     ),
                   ),
                   _buildProfile(t),
-                  _buildThemeRow(t),
                   _buildToggle(t),
                   const SizedBox(height: 8),
                 ],
@@ -599,22 +599,6 @@ class _DesktopSidebarState extends State<_DesktopSidebar> with SingleTickerProvi
     );
   }
 
-  Widget _buildThemeRow(double t) {
-    final collapsed = t < 0.5;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-      child: collapsed
-          ? const Center(child: ThemeToggleButton(compact: true))
-          : Align(
-              alignment: Alignment.centerLeft,
-              child: Opacity(
-                opacity: t.clamp(0.0, 1.0),
-                child: const ThemeToggleButton(style: ThemeToggleStyle.pill, compact: true),
-              ),
-            ),
-    );
-  }
-
   Widget _buildToggle(double t) {
     final collapsed = t < 0.5;
     return Padding(
@@ -766,13 +750,6 @@ class _MobileDrawerState extends State<_MobileDrawer> {
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                 itemCount: widget.destinations.length,
                 itemBuilder: (_, i) => _drawerItem(i),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: ThemeToggleButton(style: ThemeToggleStyle.pill, compact: true),
               ),
             ),
             _drawerProfile(),

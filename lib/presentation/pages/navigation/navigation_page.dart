@@ -21,6 +21,7 @@ import '../../viewmodels/credits_viewmodel.dart';
 import '../../viewmodels/assistant_viewmodel.dart';
 import '../../../data/repositories/shops_repository.dart';
 import '../../../data/repositories/abonnement_repository.dart';
+import '../../../core/services/app_refresh_notifier.dart';
 
 class NavigationPage extends StatefulWidget {
   final int indexInitial;
@@ -104,6 +105,21 @@ class _NavigationPageState extends State<NavigationPage> {
     if (index == _indexActuel) return;
     HapticFeedback.selectionClick();
     setState(() => _indexActuel = index);
+    _refreshTabData(index);
+  }
+
+  void _refreshTabData(int index) {
+    if (!mounted) return;
+    final scope = switch (index) {
+      0 => AppRefreshScope.dashboard,
+      1 => AppRefreshScope.sales,
+      2 => AppRefreshScope.products,
+      3 => AppRefreshScope.credits,
+      4 => AppRefreshScope.history,
+      5 => AppRefreshScope.stats,
+      _ => AppRefreshScope.all,
+    };
+    context.read<AppRefreshNotifier>().refresh(scope);
   }
 
   void _onSearchNavigate(int index, {String? productQuery, String? clientQuery}) {

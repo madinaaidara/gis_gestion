@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_surface.dart';
 import '../../../core/theme/gis_palette.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,8 +9,12 @@ import '../../viewmodels/products_viewmodel.dart';
 import '../../../data/models/produit_model.dart';
 import '../../../data/repositories/products_repository.dart';
 import '../../../data/repositories/shops_repository.dart';
+import '../../../core/services/app_refresh_listener.dart';
+import '../../../core/services/app_refresh_notifier.dart';
 import '../../../core/utils/packaging_utils.dart';
+import '../../../core/utils/responsive_utils.dart';
 import '../../widgets/gis_ui_kit.dart';
+import '../../widgets/gis_dashboard_widgets.dart';
 import 'produit_form_panel.dart';
 import 'produit_guidance_widgets.dart';
 
@@ -23,8 +26,18 @@ class ProduitsPage extends StatefulWidget {
   State<ProduitsPage> createState() => _ProduitsPageState();
 }
 
-class _ProduitsPageState extends State<ProduitsPage> {
+class _ProduitsPageState extends State<ProduitsPage> with AppRefreshListener {
   GisPalette get _p => GisPalette.of(context);
+
+  @override
+  AppRefreshScope get refreshScope => AppRefreshScope.products;
+
+  @override
+  void onAppRefresh() {
+    if (shopId != null) {
+      context.read<ProductsViewModel>().refreshProducts();
+    }
+  }
 
 
   final rechercheController = TextEditingController();
@@ -104,6 +117,7 @@ class _ProduitsPageState extends State<ProduitsPage> {
     final repo = context.read<ProductsRepository>();
     if (await repo.deleteProduct(id) && mounted) {
       await context.read<ProductsViewModel>().refreshProducts();
+      refreshAppData(context);
       _snack('Produit supprimé', success: true);
     } else if (mounted) {
       _snack(repo.errorMessage.isNotEmpty ? repo.errorMessage : 'Erreur suppression');
@@ -294,37 +308,153 @@ class _ProduitsPageState extends State<ProduitsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.sizeOf(context).width >= 900;
-    final isLoading = context.watch<ProductsViewModel>().isLoading;
+    final isWide = ResponsiveUtils.isTwoColumnWide(context);
+    final pad = ResponsiveUtils.pageHorizontalPadding(context);
+    final bottomInset = ResponsiveUtils.scrollBottomInset(context);
 
     return Scaffold(
       backgroundColor: _p.bg,
       floatingActionButton: isWide
           ? null
-          : FloatingActionButton(
+          : FloatingActionButton.extended(
               onPressed: () => _openForm(),
-              backgroundColor: _p.accent,
-              child: Icon(Icons.add_rounded, color: Colors.white),
+              backgroundColor: _p.success,
+              icon: const Icon(Icons.add_rounded, color: Colors.white),
+              label: const Text('Ajouter', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
             ),
-      body: isLoading
-          ?  Center(child: CircularProgressIndicator(color: _p.accent))
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildToolbar(isWide),
-                const ProduitWelcomeStrip(),
-                _buildCategoryStrip(),
-                _buildStatsLine(),
-                const ProduitStockLegend(),
-                Expanded(child: isWide ? _buildDesktopList() : _buildMobileList()),
+      body: Consumer<ProductsViewModel>(
+        builder: (context, vm, _) {
+          if (vm.isLoading && vm.products.isEmpty) {
+            return Center(child: CircularProgressIndicator(color: _p.accent, strokeWidth: 2.5));
+          }
+
+          final items = _displayList(vm);
+
+          return RefreshIndicator(
+            onRefresh: () => vm.refreshProducts(),
+            color: _p.accent,
+            backgroundColor: _p.surface,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+              slivers: [
+                SliverToBoxAdapter(child: _buildPageHeader(isWide, pad)),
+                SliverToBoxAdapter(child: _buildSearchRow(isWide, pad, vm)),
+                SliverToBoxAdapter(child: _buildSummaryRow(vm, pad)),
+                SliverToBoxAdapter(child: _buildCategoryTabs(vm, pad)),
+                if (vm.products.isEmpty)
+                  SliverFillRemaining(hasScrollBody: false, child: _emptyState(vm))
+                else if (items.isEmpty)
+                  SliverFillRemaining(hasScrollBody: false, child: _emptyFilter())
+                else
+                  SliverToBoxAdapter(child: _buildProductsPanel(items, pad)),
+                SliverToBoxAdapter(child: SizedBox(height: bottomInset)),
               ],
             ),
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildToolbar(bool isWide) {
+  Widget _buildPageHeader(bool isWide, double pad) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(isWide ? 24 : 16, isWide ? 8 : 12, isWide ? 24 : 16, 8),
+      padding: EdgeInsets.fromLTRB(pad, 20, pad, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Gérez vos articles, prix et niveaux de stock',
+                  style: TextStyle(color: _p.textMute, fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+          if (isWide)
+            FilledButton.icon(
+              onPressed: () => _openForm(),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Ajouter un produit'),
+              style: FilledButton.styleFrom(
+                backgroundColor: _p.success,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryRow(ProductsViewModel vm, double pad) {
+    final total = vm.totalCatalog;
+    final ok = vm.enStockCatalog;
+    final faible = vm.faibleCatalog;
+    final rupture = vm.ruptureCatalog;
+    final okPct = total > 0 ? ok / total : 0.0;
+    final faiblePct = total > 0 ? faible / total : 0.0;
+    final rupturePct = total > 0 ? rupture / total : 0.0;
+
+    final cards = [
+      (
+        label: 'Total produits',
+        value: '$total',
+        footer: 'Dans le catalogue',
+        progress: 1.0,
+        icon: Icons.inventory_2_rounded,
+        gradient: const [Color(0xFF3B82F6), Color(0xFF2563EB)],
+      ),
+      (
+        label: 'En stock',
+        value: '$ok',
+        footer: 'Stock sain',
+        progress: okPct,
+        icon: Icons.check_circle_rounded,
+        gradient: const [Color(0xFF22C55E), Color(0xFF16A34A)],
+      ),
+      (
+        label: 'Stock faible',
+        value: '$faible',
+        footer: faible > 0 ? 'À réapprovisionner' : 'Aucune alerte',
+        progress: faiblePct,
+        icon: Icons.warning_amber_rounded,
+        gradient: const [Color(0xFFF97316), Color(0xFFEA580C)],
+      ),
+      (
+        label: 'Ruptures',
+        value: '$rupture',
+        footer: rupture > 0 ? 'Action urgente' : 'Tout est disponible',
+        progress: rupturePct,
+        icon: Icons.error_outline_rounded,
+        gradient: const [Color(0xFFEF4444), Color(0xFFDC2626)],
+      ),
+    ];
+
+    return GisFourKpiRow(
+      horizontalPadding: pad,
+      cards: [
+        for (final c in cards)
+          GisKpiCardItem(
+            label: c.label,
+            value: c.value,
+            footerLabel: c.footer,
+            footerProgress: c.progress,
+            icon: c.icon,
+            gradient: c.gradient,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSearchRow(bool isWide, double pad, ProductsViewModel vm) {
+    final hasFilter = _filterGrossisteOnly || vm.stockFaibleFilterOnly;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(pad, 0, pad, 12),
       child: Row(
         children: [
           Expanded(
@@ -332,189 +462,181 @@ class _ProduitsPageState extends State<ProduitsPage> {
               controller: rechercheController,
               hint: 'Chercher un produit…',
               padding: EdgeInsets.zero,
-              onChanged: (v) => context.read<ProductsViewModel>().updateSearchQuery(v.trim()),
+              onChanged: (v) => vm.updateSearchQuery(v.trim()),
             ),
           ),
           const SizedBox(width: 10),
-          Consumer<ProductsViewModel>(
-            builder: (context, vm, _) {
-              final hasFilter = _filterGrossisteOnly || vm.stockFaibleFilterOnly;
-              return IconButton(
-                onPressed: () => _showFilters(vm),
-                icon: Badge(
+          Material(
+            color: _p.surfaceHi,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              onTap: () => _showFilters(vm),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: hasFilter ? _p.success : _p.border),
+                ),
+                child: Badge(
                   isLabelVisible: hasFilter,
                   smallSize: 8,
-                  child:  Icon(Icons.tune_rounded, color: _p.textMute),
+                  child: Icon(Icons.tune_rounded, color: hasFilter ? _p.success : _p.textMute),
                 ),
-                tooltip: 'Filtres',
-              );
-            },
-          ),
-          if (isWide) ...[
-            const SizedBox(width: 4),
-            FilledButton.icon(
-              onPressed: () => _openForm(),
-              icon: Icon(Icons.add_rounded, size: 18),
-              label: Text('Ajouter'),
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               ),
             ),
-          ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildCategoryStrip() {
-    return Consumer<ProductsViewModel>(
-      builder: (context, vm, _) => SizedBox(
-        height: 36,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+  Widget _buildCategoryTabs(ProductsViewModel vm, double pad) {
+    final tabs = <(String?, String)>[(null, 'Tout'), ...vm.categories.map((c) => (c.id, c.nom))];
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(pad, 0, pad, 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: tabs.map((tab) {
+            final selected = vm.selectedCategoryId == tab.$1;
+            return Padding(
+              padding: const EdgeInsets.only(right: 20),
+              child: GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  vm.selectCategory(tab.$1);
+                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tab.$2,
+                      style: TextStyle(
+                        color: selected ? _p.success : _p.textMute,
+                        fontSize: 13,
+                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      height: 3,
+                      width: selected ? 32 : 0,
+                      decoration: BoxDecoration(
+                        color: _p.success,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductsPanel(List<ProduitModel> items, double pad) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(pad, 0, pad, 8),
+      child: GisEdukaPanel(
+        title: 'Liste des produits',
+        subtitle: '${items.length} article${items.length > 1 ? 's' : ''} affiché${items.length > 1 ? 's' : ''}',
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _catChip('Tout', vm.selectedCategoryId == null, () => vm.selectCategory(null)),
-            ...vm.categories.map((c) => _catChip(c.nom, vm.selectedCategoryId == c.id, () => vm.selectCategory(c.id))),
+            _legendDot('OK', _p.success),
+            const SizedBox(width: 10),
+            _legendDot('Faible', _p.warning),
+            const SizedBox(width: 10),
+            _legendDot('Rupture', _p.danger),
+          ],
+        ),
+        child: Column(
+          children: [
+            _buildTableHeader(),
+            const SizedBox(height: 8),
+            ...items.asMap().entries.map((e) => _buildProductRow(e.value, e.key + 1)),
           ],
         ),
       ),
     );
   }
 
-  Widget _catChip(String label, bool active, VoidCallback onTap) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(label, style: TextStyle(fontSize: 12, color: active ? Colors.black : _p.textMute, fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
-        selected: active,
-        onSelected: (_) {
-          HapticFeedback.selectionClick();
-          onTap();
-        },
-        backgroundColor: _p.surfaceHi,
-        selectedColor: Colors.white,
-        showCheckmark: false,
-        side: BorderSide(color: active ? Colors.white : _p.border),
-        padding: EdgeInsets.zero,
-        visualDensity: VisualDensity.compact,
-      ),
+  Widget _legendDot(String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(color: _p.textDim, fontSize: 10, fontWeight: FontWeight.w500)),
+      ],
     );
   }
 
-  Widget _buildStatsLine() {
-    return Consumer<ProductsViewModel>(
-      builder: (context, vm, _) {
-        final alerts = vm.faibleCatalog + vm.ruptureCatalog;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 6),
-          child: Row(
-            children: [
-              Text(
-                '${vm.totalCatalog} produit${vm.totalCatalog > 1 ? 's' : ''}',
-                style:  TextStyle(color: _p.text, fontSize: 12, fontWeight: FontWeight.w600),
-              ),
-              Text(' · ', style: TextStyle(color: _p.textDim.withValues(alpha: 0.6))),
-              Text(
-                '${vm.enStockCatalog} en stock',
-                style: TextStyle(color: ProduitUi.success, fontSize: 12, fontWeight: FontWeight.w600),
-              ),
-              if (alerts > 0) ...[
-                Text(' · ', style: TextStyle(color: _p.textDim.withValues(alpha: 0.6))),
-                Text(
-                  '$alerts à surveiller',
-                  style: TextStyle(color: ProduitUi.warning, fontSize: 12, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ],
-          ),
-        );
-      },
+  Widget _buildTableHeader() {
+    return Row(
+      children: [
+        SizedBox(width: 36, child: Text('#', style: TextStyle(color: _p.textMute, fontSize: 11, fontWeight: FontWeight.w600))),
+        Expanded(flex: 4, child: Text('Produit', style: TextStyle(color: _p.textMute, fontSize: 11, fontWeight: FontWeight.w600))),
+        Expanded(flex: 2, child: Text('Prix', style: TextStyle(color: _p.textMute, fontSize: 11, fontWeight: FontWeight.w600))),
+        Expanded(flex: 2, child: Text('Stock', style: TextStyle(color: _p.textMute, fontSize: 11, fontWeight: FontWeight.w600))),
+        const SizedBox(width: 40),
+      ],
     );
   }
 
-  Widget _buildDesktopList() {
-    return Consumer<ProductsViewModel>(
-      builder: (context, vm, _) {
-        if (vm.products.isEmpty) return _emptyState(vm);
-        final items = _displayList(vm);
-        if (items.isEmpty) return _emptyFilter();
+  Widget _buildProductRow(ProduitModel p, int index) {
+    final stockColor = ProduitUi.stockColor(context, p);
+    final statusLabel = ProduitUi.stockLabelSimple(p);
 
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
-              child: Row(
-                children: [
-                  _colHeader('#', width: 36),
-                  _colHeader('Produit', flex: 4),
-                  _colHeader('Prix client', flex: 2),
-                  _colHeader('Il en reste', flex: 2),
-                  _colHeader('', flex: 1),
-                ],
-              ),
-            ),
-             Divider(height: 1, color: _p.border),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.only(bottom: 24),
-                itemCount: items.length,
-                separatorBuilder: (_, __) =>  Divider(height: 1, color: _p.border, indent: 24, endIndent: 24),
-                itemBuilder: (_, i) => _desktopRow(items[i], i + 1),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _colHeader(String t, {int flex = 1, double? width}) {
-    final child = Text(t.toUpperCase(), style:  TextStyle(color: _p.textDim, fontSize: 10, letterSpacing: 0.8, fontWeight: FontWeight.w600));
-    if (width != null) return SizedBox(width: width, child: child);
-    return Expanded(flex: flex, child: child);
-  }
-
-  Widget _desktopRow(ProduitModel p, int index) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => _showDetails(p),
-        hoverColor: _p.surfaceHi,
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           child: Row(
             children: [
-              SizedBox(
-                width: 36,
-                child: Text('$index', style:  TextStyle(color: _p.textDim, fontSize: 13)),
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: stockColor.withValues(alpha: 0.12),
+                child: Text('$index', style: TextStyle(color: stockColor, fontSize: 11, fontWeight: FontWeight.w800)),
               ),
+              const SizedBox(width: 10),
               Expanded(
                 flex: 4,
                 child: Row(
                   children: [
                     Container(
-                      width: 40,
-                      height: 40,
+                      width: 38,
+                      height: 38,
                       decoration: BoxDecoration(
-                        color: ProduitUi.stockColor(context, p).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: ProduitUi.stockColor(context, p).withValues(alpha: 0.25)),
+                        color: stockColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: stockColor.withValues(alpha: 0.2)),
                       ),
-                      child: Icon(Icons.inventory_2_outlined, size: 18, color: ProduitUi.stockColor(context, p)),
+                      child: Icon(Icons.inventory_2_outlined, size: 18, color: stockColor),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(p.nom, style:  TextStyle(color: _p.text, fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Text(
+                            p.nom,
+                            style: TextStyle(color: _p.text, fontSize: 13, fontWeight: FontWeight.w600),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           Text(
                             [if (p.categoryNom?.isNotEmpty == true) p.categoryNom!, p.uniteVente ?? 'pièce'].join(' · '),
-                            style:  TextStyle(color: _p.textDim, fontSize: 11),
+                            style: TextStyle(color: _p.textDim, fontSize: 11),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -528,118 +650,51 @@ class _ProduitsPageState extends State<ProduitsPage> {
                 flex: 2,
                 child: Text(
                   '${p.prixVenteUnitaire.toStringAsFixed(0)} ${devise ?? 'FCFA'}',
-                  style: TextStyle(color: ProduitUi.vente, fontSize: 13, fontWeight: FontWeight.w700),
+                  style: TextStyle(color: ProduitUi.vente, fontSize: 12, fontWeight: FontWeight.w700),
                 ),
               ),
               Expanded(
                 flex: 2,
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ProduitStockBadge(product: p),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        PackagingUtils.formatStock(p),
-                        style: TextStyle(color: ProduitUi.stockColor(context, p), fontSize: 11, fontWeight: FontWeight.w500),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: stockColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
                       ),
+                      child: Text(
+                        statusLabel,
+                        style: TextStyle(color: stockColor, fontSize: 10, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      PackagingUtils.formatStock(p),
+                      style: TextStyle(color: _p.textDim, fontSize: 10),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              Expanded(
-                flex: 1,
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: PopupMenuButton<String>(
-                    icon:  Icon(Icons.more_horiz_rounded, color: _p.textMute, size: 20),
-                    color: _p.surfaceHi,
-                    onSelected: (a) {
-                      if (a == 'edit') _openForm(product: p);
-                      if (a == 'delete') _confirmDelete(p);
-                    },
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(value: 'edit', child: Text('Modifier')),
-                       PopupMenuItem(value: 'delete', child: Text('Supprimer', style: TextStyle(color: _p.danger))),
-                    ],
-                  ),
-                ),
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_horiz_rounded, color: _p.textMute, size: 20),
+                color: _p.surfaceHi,
+                onSelected: (a) {
+                  if (a == 'edit') _openForm(product: p);
+                  if (a == 'delete') _confirmDelete(p);
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(value: 'edit', child: Text('Modifier')),
+                  PopupMenuItem(value: 'delete', child: Text('Supprimer', style: TextStyle(color: _p.danger))),
+                ],
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildMobileList() {
-    return Consumer<ProductsViewModel>(
-      builder: (context, vm, _) {
-        if (vm.products.isEmpty) return _emptyState(vm);
-        final items = _displayList(vm);
-        if (items.isEmpty) return _emptyFilter();
-
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 88),
-          itemCount: items.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 2),
-          itemBuilder: (_, i) {
-            final p = items[i];
-            final stockColor = ProduitUi.stockColor(context, p);
-
-            return Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => _showDetails(p),
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: stockColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: stockColor.withValues(alpha: 0.25)),
-                        ),
-                        child: Icon(Icons.inventory_2_outlined, color: stockColor),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(p.nom, style:  TextStyle(color: _p.text, fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${p.prixVenteUnitaire.toStringAsFixed(0)} ${devise ?? 'FCFA'} / ${p.uniteVente ?? 'pièce'}',
-                              style: TextStyle(color: ProduitUi.vente, fontSize: 12, fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          ProduitStockBadge(product: p),
-                          const SizedBox(height: 4),
-                          Text(
-                            PackagingUtils.formatStock(p),
-                            style: TextStyle(color: stockColor, fontSize: 10, fontWeight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
     );
   }
 
@@ -653,32 +708,33 @@ class _ProduitsPageState extends State<ProduitsPage> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: ProduitUi.accent.withValues(alpha: 0.12),
+                color: _p.success.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.storefront_rounded, size: 40, color: ProduitUi.accentSoft),
+              child: Icon(Icons.storefront_rounded, size: 40, color: _p.success),
             ),
             const SizedBox(height: 20),
             Text('Commencez ici', style: GoogleFonts.plusJakartaSans(color: _p.text, fontSize: 18, fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
-             Text(
+            Text(
               'Ajoutez ce que vous vendez dans votre boutique.\nL\'application calcule le reste pour vous.',
               textAlign: TextAlign.center,
               style: TextStyle(color: _p.textMute, fontSize: 13, height: 1.45),
             ),
             const SizedBox(height: 24),
-            _emptyStep('1', 'Le produit', 'Nom, ex. « Riz 25 kg »', ProduitUi.accent),
+            _emptyStep('1', 'Le produit', 'Nom, ex. « Riz 25 kg »', _p.accent),
             _emptyStep('2', 'Les prix', 'Combien vous payez et vendez', ProduitUi.achat),
             _emptyStep('3', 'La quantité', 'Combien il en reste en rayon', ProduitUi.stock),
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: () => _openForm(),
-              icon: Icon(Icons.add_rounded),
-              label: Text('Ajouter mon premier produit'),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Ajouter mon premier produit'),
               style: FilledButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
+                backgroundColor: _p.success,
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],
@@ -712,7 +768,7 @@ class _ProduitsPageState extends State<ProduitsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w700)),
-                Text(sub, style:  TextStyle(color: _p.textDim, fontSize: 11)),
+                Text(sub, style: TextStyle(color: _p.textDim, fontSize: 11)),
               ],
             ),
           ),

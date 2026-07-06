@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/theme/gis_palette.dart';
 import '../../core/theme/gis_theme_ext.dart';
+import '../../core/utils/responsive_utils.dart';
 
 /// Bandeau d'accueil — style dashboard professionnel (Pointel / Shopify).
 class GisDashboardWelcome extends StatelessWidget {
@@ -33,7 +34,7 @@ class GisDashboardWelcome extends StatelessWidget {
     final now = DateTime.now();
     final dateLabel = DateFormat('dd/MM/yyyy', 'fr_FR').format(now);
     final timeLabel = DateFormat('HH:mm', 'fr_FR').format(now);
-    final isWide = MediaQuery.sizeOf(context).width >= 720;
+    final isWide = ResponsiveUtils.isPageWide(context);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(isWide ? 24 : 16, 16, isWide ? 24 : 16, 8),
@@ -349,7 +350,7 @@ class GisAnalyticsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = GisPalette.of(context);
-    final isWide = MediaQuery.sizeOf(context).width >= 720;
+    final isWide = ResponsiveUtils.isPageWide(context);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(isWide ? 24 : 16, 16, isWide ? 24 : 16, 8),
@@ -584,6 +585,404 @@ class GisDashboardSplit extends StatelessWidget {
             const SizedBox(height: 12),
             right,
           ],
+        );
+      },
+    );
+  }
+}
+
+/// Carte KPI style Eduka — dégradé, icône, barre de progression en bas.
+class GisEdukaSummaryCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final String? footerLabel;
+  final double footerProgress;
+  final IconData icon;
+  final List<Color> gradient;
+  final double height;
+
+  const GisEdukaSummaryCard({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.gradient,
+    this.footerLabel,
+    this.footerProgress = 0,
+    this.height = 158,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final boundedH = constraints.hasBoundedHeight && constraints.maxHeight.isFinite;
+        final compact = boundedH && constraints.maxHeight < 155;
+
+        return Container(
+          height: boundedH ? constraints.maxHeight : height,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: gradient,
+            ),
+            borderRadius: BorderRadius.circular(compact ? 16 : 20),
+            boxShadow: [
+              BoxShadow(
+                color: gradient.first.withValues(alpha: compact ? 0.22 : 0.32),
+                blurRadius: compact ? 12 : 18,
+                offset: Offset(0, compact ? 4 : 8),
+              ),
+            ],
+          ),
+          child: Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
+              if (!compact)
+                Positioned(
+                  top: -16,
+                  right: -16,
+                  child: Icon(icon, size: 88, color: Colors.white.withValues(alpha: 0.14)),
+                ),
+              Padding(
+                padding: EdgeInsets.all(compact ? 11 : 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(compact ? 6 : 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.22),
+                            borderRadius: BorderRadius.circular(compact ? 9 : 12),
+                          ),
+                          child: Icon(icon, color: Colors.white, size: compact ? 15 : 18),
+                        ),
+                        if (compact) ...[
+                          const Spacer(),
+                          Icon(icon, size: 28, color: Colors.white.withValues(alpha: 0.12)),
+                        ],
+                      ],
+                    ),
+                    const Spacer(),
+                    Text(
+                      value,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: Colors.white,
+                        fontSize: compact ? 18 : 26,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: compact ? -0.4 : -0.8,
+                        height: 1,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: compact ? 2 : 3),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.92),
+                        fontSize: compact ? 10 : 12,
+                        fontWeight: FontWeight.w600,
+                        height: 1.15,
+                      ),
+                      maxLines: compact ? 2 : 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (footerLabel != null) ...[
+                      SizedBox(height: compact ? 5 : 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: footerProgress.clamp(0.0, 1.0),
+                          minHeight: compact ? 2 : 3,
+                          backgroundColor: Colors.white.withValues(alpha: 0.22),
+                          valueColor: AlwaysStoppedAnimation(Colors.white.withValues(alpha: 0.9)),
+                        ),
+                      ),
+                      SizedBox(height: compact ? 2 : 4),
+                      Text(
+                        footerLabel!,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.78),
+                          fontSize: compact ? 9 : 10,
+                          fontWeight: FontWeight.w500,
+                          height: 1.15,
+                        ),
+                        maxLines: compact ? 2 : 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Dimensions KPI selon la largeur disponible (mobile / tablette / desktop).
+abstract final class GisKpiLayout {
+  static bool useRowLayout(double width) => width >= AppBreakpoints.kpiRow;
+
+  /// Grille 2×2 sous 960 px — les 4 KPI visibles sans scroll.
+  static bool useGridLayout(double width) => width < AppBreakpoints.kpiRow;
+
+  static double gridAspectRatio(double width) =>
+      width < AppBreakpoints.phone ? 1.12 : 1.18;
+
+  static const gridSpacing = 10.0;
+}
+
+/// Layout 4 KPI : ligne desktop, grille 2×2 mobile/tablette.
+class GisFourKpiLayout extends StatelessWidget {
+  const GisFourKpiLayout({
+    super.key,
+    required this.children,
+    this.horizontalPadding = 16,
+    this.topPadding = 0,
+    this.bottomPadding = 12,
+  });
+
+  final List<Widget> children;
+  final double horizontalPadding;
+  final double topPadding;
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    assert(children.length == 4, 'GisFourKpiLayout attend exactement 4 cartes');
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(horizontalPadding, topPadding, horizontalPadding, bottomPadding),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (GisKpiLayout.useRowLayout(constraints.maxWidth)) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = 0; i < children.length; i++)
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(right: i < children.length - 1 ? 12 : 0),
+                      child: SizedBox(height: 158, child: children[i]),
+                    ),
+                  ),
+              ],
+            );
+          }
+
+          return GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: GisKpiLayout.gridSpacing,
+            crossAxisSpacing: GisKpiLayout.gridSpacing,
+            childAspectRatio: GisKpiLayout.gridAspectRatio(constraints.maxWidth),
+            children: children,
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Données d'une carte KPI pour [GisFourKpiRow].
+class GisKpiCardItem {
+  const GisKpiCardItem({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.gradient,
+    this.footerLabel,
+    this.footerProgress = 0,
+  });
+
+  final String label;
+  final String value;
+  final String? footerLabel;
+  final double footerProgress;
+  final IconData icon;
+  final List<Color> gradient;
+}
+
+/// Rangée de 4 KPI : ligne desktop (≥960px), grille 2×2 mobile/tablette.
+class GisFourKpiRow extends StatelessWidget {
+  const GisFourKpiRow({
+    super.key,
+    required this.cards,
+    this.horizontalPadding = 16,
+    this.topPadding = 0,
+    this.bottomPadding = 12,
+  });
+
+  final List<GisKpiCardItem> cards;
+  final double horizontalPadding;
+  final double topPadding;
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    assert(cards.length == 4, 'GisFourKpiRow attend exactement 4 cartes');
+
+    return GisFourKpiLayout(
+      horizontalPadding: horizontalPadding,
+      topPadding: topPadding,
+      bottomPadding: bottomPadding,
+      children: [
+        for (final c in cards)
+          GisEdukaSummaryCard(
+            label: c.label,
+            value: c.value,
+            footerLabel: c.footerLabel,
+            footerProgress: c.footerProgress,
+            icon: c.icon,
+            gradient: c.gradient,
+          ),
+      ],
+    );
+  }
+}
+
+/// Panneau blanc arrondi — style Eduka dashboard.
+class GisEdukaPanel extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final Widget child;
+  final Widget? trailing;
+
+  const GisEdukaPanel({
+    super.key,
+    required this.title,
+    required this.child,
+    this.subtitle,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = GisPalette.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: p.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: p.border.withValues(alpha: isDark ? 0.55 : 0.35)),
+        boxShadow: isDark
+            ? [BoxShadow(color: Colors.black.withValues(alpha: 0.22), blurRadius: 16, offset: const Offset(0, 6))]
+            : [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 16, offset: const Offset(0, 4)),
+              ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: p.text,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle!,
+                        style: TextStyle(color: p.textMute, fontSize: 12, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (trailing != null) trailing!,
+            ],
+          ),
+          const SizedBox(height: 16),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+/// Fond ambient animé — orbes colorés derrière le dashboard.
+class GisDashboardAmbientBackground extends StatelessWidget {
+  final Animation<double> anim;
+
+  const GisDashboardAmbientBackground({super.key, required this.anim});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: anim,
+      builder: (context, _) {
+        final pulse = 0.65 + anim.value * 0.35;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final scale = isDark ? 1.0 : 0.65;
+        final p = GisPalette.of(context);
+        return IgnorePointer(
+          child: Stack(
+            children: [
+              Positioned(
+                top: -80 + anim.value * 20,
+                right: -60,
+                child: Container(
+                  width: 220 * pulse,
+                  height: 220 * pulse,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [p.accent.withValues(alpha: 0.22 * scale), p.accent.withValues(alpha: 0)],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 180,
+                left: -100 + anim.value * 15,
+                child: Container(
+                  width: 180,
+                  height: 180,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [p.info.withValues(alpha: 0.12 * scale), p.info.withValues(alpha: 0)],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 120,
+                right: -40,
+                child: Container(
+                  width: 160 * pulse,
+                  height: 160 * pulse,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [p.success.withValues(alpha: 0.08 * scale), p.success.withValues(alpha: 0)],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );

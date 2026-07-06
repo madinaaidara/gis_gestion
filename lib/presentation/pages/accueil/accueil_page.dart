@@ -9,6 +9,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../data/repositories/accueil_repository.dart';
 import '../../../data/repositories/shops_repository.dart';
+import '../../../core/services/app_refresh_listener.dart';
+import '../../../core/services/app_refresh_notifier.dart';
+import '../../../core/utils/responsive_utils.dart';
 import '../../widgets/custom_charts.dart';
 import '../../widgets/gis_dashboard_widgets.dart';
 
@@ -21,9 +24,14 @@ class AccueilPage extends StatefulWidget {
   State<AccueilPage> createState() => _AccueilPageState();
 }
 
-class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin {
+class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin, AppRefreshListener {
   GisPalette get _p => GisPalette.of(context);
 
+  @override
+  AppRefreshScope get refreshScope => AppRefreshScope.dashboard;
+
+  @override
+  void onAppRefresh() => _loadData();
 
   final _repo = AccueilRepository();
 
@@ -34,13 +42,12 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
   String? userName;
   bool _loading = true;
   bool _entrancePlayed = false;
+  String _salesFilter = 'all';
   Map<String, dynamic> _data = {};
 
   late AnimationController _entranceController;
-  late AnimationController _ambientController;
   late AnimationController _countController;
   late Animation<double> _entranceAnim;
-  late Animation<double> _ambientAnim;
   late Animation<double> _countAnim;
 
   StatsChartTheme get _chartTheme =>  StatsChartTheme(
@@ -60,16 +67,11 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     );
-    _ambientController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3200),
-    )..repeat(reverse: true);
     _countController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
     _entranceAnim = CurvedAnimation(parent: _entranceController, curve: Curves.easeOutCubic);
-    _ambientAnim = CurvedAnimation(parent: _ambientController, curve: Curves.easeInOut);
     _countAnim = CurvedAnimation(parent: _countController, curve: Curves.easeOutExpo);
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
   }
@@ -77,7 +79,6 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
   @override
   void dispose() {
     _entranceController.dispose();
-    _ambientController.dispose();
     _countController.dispose();
     super.dispose();
   }
@@ -204,59 +205,479 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
             : SystemUiOverlayStyle.dark.copyWith(statusBarColor: Colors.transparent),
         child: Scaffold(
           backgroundColor: _p.bg,
-          body: Stack(
-            children: [
-              _AmbientBackground(anim: _ambientAnim),
-              SafeArea(
-                child: _loading
-                    ? const _DashboardSkeleton()
-                    : RefreshIndicator(
-                        onRefresh: _loadData,
-                        color: _p.accent,
-                        backgroundColor: _p.surface,
-                        child: CustomScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-                          slivers: [
-                            SliverToBoxAdapter(child: _stagger(0, _buildWelcomeBlock())),
-                            SliverToBoxAdapter(child: _stagger(1, _buildMainKpiGrid())),
-                            SliverToBoxAdapter(child: _stagger(2, _buildDonutSection())),
-                            SliverToBoxAdapter(child: _stagger(3, _buildPerformanceStrip())),
-                            SliverToBoxAdapter(child: _stagger(4, _buildAlerts())),
-                            SliverToBoxAdapter(child: _stagger(5, _buildRecentSales())),
-                            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                          ],
-                        ),
-                      ),
-              ),
-            ],
+          body: SafeArea(
+            child: _loading
+                ? const _DashboardSkeleton()
+                : RefreshIndicator(
+                    onRefresh: _loadData,
+                    color: _p.accent,
+                    backgroundColor: _p.surface,
+                    child: CustomScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                      slivers: [
+                        SliverToBoxAdapter(child: _stagger(0, _buildEdukaHeader())),
+                        SliverToBoxAdapter(child: _stagger(1, _buildEdukaSummaryRow())),
+                        SliverToBoxAdapter(child: _stagger(2, _buildEdukaMainContent())),
+                        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                        SliverToBoxAdapter(child: _stagger(3, _buildAlerts())),
+                        SliverToBoxAdapter(child: SizedBox(height: ResponsiveUtils.scrollBottomInset(context))),
+                      ],
+                    ),
+                  ),
           ),
         ),
       ),
     );
   }
 
+  Widget _buildEdukaHeader() {
+    final displayName = proprietaire?.isNotEmpty == true ? proprietaire! : userName ?? 'Gérant';
+    final isWide = ResponsiveUtils.isPageWide(context);
+    final dateStr = DateFormat('EEEE d MMMM yyyy', 'fr_FR').format(DateTime.now());
+    final dateLabel = dateStr.isNotEmpty ? '${dateStr[0].toUpperCase()}${dateStr.substring(1)}' : '';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(isWide ? 24 : 16, 20, isWide ? 24 : 16, 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$_greeting, $displayName 👋',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: _p.text,
+                        fontSize: isWide ? 26 : 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.6,
+                        height: 1.15,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      shopName ?? 'Ma boutique',
+                      style: TextStyle(color: _p.textMute, fontSize: 13, fontWeight: FontWeight.w500),
+                    ),
+                    if (dateLabel.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(dateLabel, style: TextStyle(color: _p.textDim, fontSize: 12)),
+                    ],
+                  ],
+                ),
+              ),
+              if (isWide) ...[
+                FilledButton.icon(
+                  onPressed: () => _go(1),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Nouvelle vente'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _p.success,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              _TipIconButton(
+                icon: Icons.refresh_rounded,
+                tooltip: 'Actualiser le tableau de bord',
+                onTap: _loadData,
+              ),
+            ],
+          ),
+        ),
+        _buildEdukaMobileCta(),
+      ],
+    );
+  }
+
+  Widget _buildEdukaMobileCta() {
+    final isWide = ResponsiveUtils.isPageWide(context);
+    if (isWide) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: () => _go(1),
+          icon: const Icon(Icons.add_rounded, size: 18),
+          label: const Text('Nouvelle vente'),
+          style: FilledButton.styleFrom(
+            backgroundColor: _p.success,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEdukaSummaryRow() {
+    final objectif = _d('objectif_jour_percent');
+    final totalProd = _i('total_produits');
+    final stockPct = totalProd > 0 ? _i('stock_ok') / totalProd : 0.0;
+    final credits = _i('credits_en_cours');
+
+    final cards = [
+      _EdukaSummaryCardData(
+        label: 'Chiffre d\'affaires du jour',
+        value: _moneyLabel(_d('ca_jour'), compact: true),
+        footerLabel: 'Objectif ${objectif.toStringAsFixed(0)}% vs moyenne',
+        footerProgress: (objectif / 100).clamp(0.0, 1.0),
+        icon: Icons.payments_rounded,
+        gradient: const [Color(0xFF22C55E), Color(0xFF16A34A)],
+        animateValue: _d('ca_jour'),
+      ),
+      _EdukaSummaryCardData(
+        label: 'Ventes aujourd\'hui',
+        value: '${_i('ventes_jour')}',
+        footerLabel: '${_i('ventes_comptant_jour')} comptant · ${_i('ventes_credit_jour')} crédit',
+        footerProgress: _i('ventes_jour') > 0 ? _i('ventes_comptant_jour') / _i('ventes_jour') : 0,
+        icon: Icons.receipt_long_rounded,
+        gradient: const [Color(0xFF3B82F6), Color(0xFF2563EB)],
+      ),
+      _EdukaSummaryCardData(
+        label: 'CA du mois',
+        value: _moneyLabel(_d('ca_mois'), compact: true),
+        footerLabel: 'Marge ${_d('marge_mois_percent').toStringAsFixed(0)}% · ${_i('ventes_mois')} ventes',
+        footerProgress: (_d('marge_mois_percent') / 100).clamp(0.0, 1.0),
+        icon: Icons.trending_up_rounded,
+        gradient: const [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
+      ),
+      _EdukaSummaryCardData(
+        label: credits > 0 ? 'Crédits en cours' : 'Catalogue produits',
+        value: credits > 0 ? '$credits' : '$totalProd',
+        footerLabel: credits > 0
+            ? 'Reste ${_moneyLabel(_d('credits_reste_total'), compact: true)}'
+            : '${_i('stock_ok')} en stock sain',
+        footerProgress: credits > 0 ? 0.65 : stockPct,
+        icon: credits > 0 ? Icons.credit_card_rounded : Icons.inventory_2_rounded,
+        gradient: const [Color(0xFFF97316), Color(0xFFEA580C)],
+      ),
+    ];
+
+    return GisFourKpiLayout(
+      horizontalPadding: ResponsiveUtils.pageHorizontalPadding(context),
+      topPadding: 4,
+      bottomPadding: 12,
+      children: [for (final c in cards) _buildAnimatedSummaryCard(c)],
+    );
+  }
+
+  Widget _buildAnimatedSummaryCard(_EdukaSummaryCardData card) {
+    if (card.animateValue != null) {
+      return AnimatedBuilder(
+        animation: _countAnim,
+        builder: (context, _) {
+          final animated = card.animateValue! * _countAnim.value;
+          return GisEdukaSummaryCard(
+            label: card.label,
+            value: _moneyLabel(animated, compact: true),
+            footerLabel: card.footerLabel,
+            footerProgress: card.footerProgress * _countAnim.value,
+            icon: card.icon,
+            gradient: card.gradient,
+          );
+        },
+      );
+    }
+    return GisEdukaSummaryCard(
+      label: card.label,
+      value: card.value,
+      footerLabel: card.footerLabel,
+      footerProgress: card.footerProgress,
+      icon: card.icon,
+      gradient: card.gradient,
+    );
+  }
+
+  Widget _buildEdukaMainContent() {
+    final isWide = ResponsiveUtils.isKpiRowWide(context);
+    final horizontalPad = isWide ? 24.0 : 16.0;
+    final left = _buildEdukaSalesPanel();
+    final right = Column(
+      children: [
+        _buildEdukaEvolutionChart(),
+        const SizedBox(height: 12),
+        _buildEdukaPaymentDonut(),
+      ],
+    );
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(horizontalPad, 0, horizontalPad, 8),
+      child: isWide
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 3, child: left),
+                const SizedBox(width: 16),
+                Expanded(flex: 2, child: right),
+              ],
+            )
+          : Column(
+              children: [
+                left,
+                const SizedBox(height: 12),
+                right,
+              ],
+            ),
+    );
+  }
+
+  Widget _buildEdukaEvolutionChart() {
+    final caParJour = List<Map<String, dynamic>>.from(_data['ca_par_jour'] ?? []);
+    String? trendLabel;
+    if (caParJour.length >= 2) {
+      final last = (caParJour.last['value'] as num?)?.toDouble() ?? 0;
+      final prev = (caParJour[caParJour.length - 2]['value'] as num?)?.toDouble() ?? 0;
+      if (prev > 0) {
+        final pct = ((last - prev) / prev * 100);
+        trendLabel = '${pct >= 0 ? '+' : ''}${pct.toStringAsFixed(0)}% vs hier';
+      }
+    }
+
+    return EvolutionAreaChartWidget(
+      theme: _chartTheme,
+      data: caParJour,
+      title: 'Évolution des ventes',
+      subtitle: '7 derniers jours',
+      trendLabel: trendLabel,
+      height: 220,
+    );
+  }
+
+  Widget _buildEdukaPaymentDonut() {
+    final comptant = _d('ca_comptant_jour');
+    final credit = _d('ca_credit_jour');
+    final sections = <Map<String, dynamic>>[];
+    if (comptant > 0) sections.add({'label': 'Comptant', 'value': comptant});
+    if (credit > 0) sections.add({'label': 'Crédit', 'value': credit});
+
+    return GisEdukaPanel(
+      title: 'Répartition du jour',
+      subtitle: 'Comptant vs crédit',
+      child: DonutChartWidget(
+        theme: _chartTheme,
+        compact: true,
+        embedded: true,
+        title: '',
+        centerLabel: 'CA jour',
+        centerValue: _formatMoney(_d('ca_jour'), compact: true),
+        sections: sections,
+        colors: [_p.success, _p.warning],
+      ),
+    );
+  }
+
+  Widget _buildEdukaSalesPanel() {
+    final ventes = List<Map<String, dynamic>>.from(_data['ventes_recentes'] ?? []);
+    final filtered = ventes.where((v) {
+      if (_salesFilter == 'comptant') return v['est_credit'] != true;
+      if (_salesFilter == 'credit') return v['est_credit'] == true;
+      return true;
+    }).toList();
+
+    return GisEdukaPanel(
+      title: 'Dernières ventes',
+      subtitle: '${_i('ventes_jour')} vente${_i('ventes_jour') > 1 ? 's' : ''} aujourd\'hui',
+      trailing: GestureDetector(
+        onTap: () => _go(4),
+        child: Text(
+          'Voir tout →',
+          style: TextStyle(color: _p.success, fontSize: 12, fontWeight: FontWeight.w700),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildEdukaSalesTabs(),
+          const SizedBox(height: 14),
+          if (filtered.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(Icons.receipt_long_outlined, size: 40, color: _p.textDim),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Aucune vente — lancez une vente depuis la caisse.',
+                      style: TextStyle(color: _p.textMute, fontSize: 13),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 14),
+                    FilledButton.icon(
+                      onPressed: () => _go(1),
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('Nouvelle vente'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _p.success,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ...filtered.map((v) => _buildEdukaSaleRow(v)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEdukaSalesTabs() {
+    const tabs = [('all', 'Toutes'), ('comptant', 'Comptant'), ('credit', 'Crédit')];
+
+    return Row(
+      children: tabs.map((tab) {
+        final selected = _salesFilter == tab.$1;
+        return Padding(
+          padding: const EdgeInsets.only(right: 20),
+          child: GestureDetector(
+            onTap: () => setState(() => _salesFilter = tab.$1),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tab.$2,
+                  style: TextStyle(
+                    color: selected ? _p.success : _p.textMute,
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  height: 3,
+                  width: selected ? 36 : 0,
+                  decoration: BoxDecoration(
+                    color: _p.success,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildEdukaSaleRow(Map<String, dynamic> v) {
+    final nom = v['nom_produit']?.toString() ?? 'Vente';
+    final total = (v['total'] as num?)?.toDouble() ?? 0;
+    final credit = v['est_credit'] == true;
+    final client = v['client_nom']?.toString();
+    final parsed = DateTime.tryParse(v['date_vente']?.toString() ?? '');
+    final timeLabel = parsed != null ? DateFormat('dd/MM · HH:mm', 'fr_FR').format(parsed.toLocal()) : '';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: (credit ? _p.warning : _p.success).withValues(alpha: 0.12),
+            child: Icon(
+              credit ? Icons.credit_card_rounded : Icons.payments_rounded,
+              size: 18,
+              color: credit ? _p.warning : _p.success,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  nom,
+                  style: TextStyle(color: _p.text, fontSize: 13, fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (client != null && client.isNotEmpty)
+                  Text(client, style: TextStyle(color: _p.textMute, fontSize: 11), maxLines: 1),
+                if (timeLabel.isNotEmpty)
+                  Text(timeLabel, style: TextStyle(color: _p.textDim, fontSize: 10)),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _moneyLabel(total, compact: true),
+                style: TextStyle(color: _p.text, fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: (credit ? _p.warning : _p.success).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  credit ? 'Crédit' : 'Comptant',
+                  style: TextStyle(
+                    color: credit ? _p.warning : _p.success,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildWelcomeBlock() {
     final displayName = proprietaire?.isNotEmpty == true ? proprietaire! : userName ?? 'Gérant';
-    return GisDashboardWelcome(
-      userName: displayName,
-      shopName: shopName,
-      onRefresh: _loadData,
-      actions: [
-        GisDashboardAction(
-          label: 'Nouvelle vente',
-          icon: Icons.add_rounded,
-          primary: true,
-          onTap: () => _go(1),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GisDashboardWelcome(
+          userName: displayName,
+          shopName: shopName,
+          onRefresh: _loadData,
         ),
-        GisDashboardAction(
-          label: 'Statistiques',
-          icon: Icons.insights_rounded,
-          onTap: () => _go(5),
-        ),
-        GisDashboardAction(
-          label: 'Historique',
-          icon: Icons.history_rounded,
-          onTap: () => _go(4),
+        _buildHero(),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              GisDashboardAction(
+                label: 'Nouvelle vente',
+                icon: Icons.add_rounded,
+                primary: true,
+                onTap: () => _go(1),
+              ),
+              GisDashboardAction(
+                label: 'Statistiques',
+                icon: Icons.insights_rounded,
+                onTap: () => _go(5),
+              ),
+              GisDashboardAction(
+                label: 'Historique',
+                icon: Icons.history_rounded,
+                onTap: () => _go(4),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -997,6 +1418,26 @@ class _AccueilPageState extends State<AccueilPage> with TickerProviderStateMixin
   }
 }
 
+class _EdukaSummaryCardData {
+  final String label;
+  final String value;
+  final String? footerLabel;
+  final double footerProgress;
+  final IconData icon;
+  final List<Color> gradient;
+  final double? animateValue;
+
+  const _EdukaSummaryCardData({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.gradient,
+    this.footerLabel,
+    this.footerProgress = 0,
+    this.animateValue,
+  });
+}
+
 class _PersonalAction {
   final String title;
   final String subtitle;
@@ -1300,81 +1741,6 @@ class _MiniActionRing extends StatelessWidget {
   }
 }
 
-class _AmbientBackground extends StatelessWidget {
-  final Animation<double> anim;
-
-  const _AmbientBackground({required this.anim});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: anim,
-      builder: (context, _) {
-        final pulse = 0.65 + anim.value * 0.35;
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        final scale = isDark ? 1.0 : 0.4;
-        return IgnorePointer(
-          child: Stack(
-            children: [
-              Positioned(
-                top: -80 + anim.value * 20,
-                right: -60,
-                child: Container(
-                  width: 220 * pulse,
-                  height: 220 * pulse,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        GisPalette.of(context).accent.withValues(alpha: 0.22 * scale),
-                        GisPalette.of(context).accent.withValues(alpha: 0),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 180,
-                left: -100 + anim.value * 15,
-                child: Container(
-                  width: 180,
-                  height: 180,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        GisPalette.of(context).info.withValues(alpha: 0.12 * scale),
-                        GisPalette.of(context).info.withValues(alpha: 0),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 120,
-                right: -40,
-                child: Container(
-                  width: 160 * pulse,
-                  height: 160 * pulse,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        GisPalette.of(context).success.withValues(alpha: 0.08 * scale),
-                        GisPalette.of(context).success.withValues(alpha: 0),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
 class _DashboardSkeleton extends StatefulWidget {
   const _DashboardSkeleton();
 
@@ -1403,33 +1769,27 @@ class _DashboardSkeletonState extends State<_DashboardSkeleton> with SingleTicke
       animation: _shimmer,
       builder: (context, _) {
         return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _shimmerBox(width: 180, height: 22, t: _shimmer.value),
-              const SizedBox(height: 6),
-              _shimmerBox(width: 240, height: 28, t: _shimmer.value),
-              const SizedBox(height: 16),
-              _shimmerBox(width: double.infinity, height: 120, t: _shimmer.value, radius: 16),
-              const SizedBox(height: 12),
-              _shimmerBox(width: double.infinity, height: 140, t: _shimmer.value, radius: 14),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(child: _shimmerBox(height: 56, t: _shimmer.value, radius: 10)),
-                  const SizedBox(width: 8),
-                  Expanded(child: _shimmerBox(height: 56, t: _shimmer.value, radius: 10)),
-                ],
-              ),
+              _shimmerBox(width: 220, height: 26, t: _shimmer.value, radius: 8),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(child: _shimmerBox(height: 56, t: _shimmer.value, radius: 10)),
-                  const SizedBox(width: 8),
-                  Expanded(child: _shimmerBox(height: 56, t: _shimmer.value, radius: 10)),
-                ],
+              _shimmerBox(width: 160, height: 14, t: _shimmer.value, radius: 6),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 158,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: 4,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (_, __) => _shimmerBox(width: 200, height: 158, t: _shimmer.value, radius: 20),
+                ),
               ),
+              const SizedBox(height: 16),
+              _shimmerBox(width: double.infinity, height: 320, t: _shimmer.value, radius: 20),
+              const SizedBox(height: 12),
+              _shimmerBox(width: double.infinity, height: 240, t: _shimmer.value, radius: 20),
             ],
           ),
         );

@@ -12,7 +12,10 @@ import '../../../core/theme/gis_theme_ext.dart';
 import '../../widgets/theme_toggle_button.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.initialSignUp = false});
+
+  /// Ouvre directement l’onglet inscription (landing → essai gratuit).
+  final bool initialSignUp;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -34,12 +37,13 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
   bool _isLoading = false;
   bool _obscurePassword = true;
-  bool _isSignUp = false;
+  late bool _isSignUp;
   StreamSubscription<AuthState>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
+    _isSignUp = widget.initialSignUp;
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       if (!mounted) return;
       if (data.event == AuthChangeEvent.signedIn && _isLoading) {

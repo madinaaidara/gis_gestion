@@ -7,6 +7,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'core/constants/supabase_constants.dart';
 import 'core/theme/app_surface.dart';
 import 'core/theme/gis_palette.dart';
+import 'core/services/app_refresh_notifier.dart';
 import 'presentation/viewmodels/theme_viewmodel.dart';
 
 // COUCHE DATA : Importations corrigées selon votre arborescence exacte
@@ -23,6 +24,7 @@ import 'data/repositories/stats_repository.dart';
 import 'data/repositories/assistant_repository.dart';
 
 // COUCHE PRÉSENTATION : Flux de navigation et d'écrans
+import 'presentation/widgets/app_entry.dart';
 import 'presentation/widgets/auth_wrapper.dart';
 import 'presentation/pages/auth/login_page.dart';
 import 'presentation/pages/navigation/navigation_page.dart';
@@ -52,6 +54,8 @@ void main() async {
   );
   
   await initializeDateFormatting('fr_FR', null);
+
+  AppSurface.sync(GisPalette.light);
 
   runApp(const GisGestionApp());
 }
@@ -106,6 +110,7 @@ class GisGestionApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => StatsViewModel(StatsRepository())),
         ChangeNotifierProvider(create: (_) => AssistantViewModel(AssistantRepository())),
         ChangeNotifierProvider(create: (_) => ThemeViewModel()),
+        ChangeNotifierProvider(create: (_) => AppRefreshNotifier()),
       ],
 
 
@@ -124,8 +129,12 @@ class GisGestionApp extends StatelessWidget {
         // ============================================
         initialRoute: '/',
         routes: {
-          '/': (context) => const AuthWrapper(),
-          '/login': (context) => const LoginPage(),
+          '/': (context) => const AppEntry(),
+          '/app': (context) => const AuthWrapper(),
+          '/login': (context) {
+            final signUp = ModalRoute.of(context)?.settings.arguments == true;
+            return LoginPage(initialSignUp: signUp);
+          },
           '/navigation': (context) => const NavigationPage(indexInitial: 0),
           '/setup-boutique': (context) => const SetupBoutiquePage(),
           '/onboarding-tour': (context) => const OnboardingTourPage(),

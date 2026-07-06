@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'gis_theme_ext.dart';
 
-/// Palette complète Gis Gestion — sombre (défaut Spotify) ou claire.
+/// Palette complète Gis Gestion — claire (défaut) ou sombre.
 @immutable
 class GisPalette extends ThemeExtension<GisPalette> {
   final Color bg;
@@ -58,7 +58,7 @@ class GisPalette extends ThemeExtension<GisPalette> {
     required this.topBarBg,
   });
 
-  /// Mode sombre — défaut (style Spotify / Linear).
+  /// Mode sombre — style Spotify / Linear.
   static const dark = GisPalette(
     bg: Color(0xFF0A0A0B),
     scaffold: Color(0xFF0A0A0B),
@@ -115,7 +115,7 @@ class GisPalette extends ThemeExtension<GisPalette> {
   );
 
   static GisPalette of(BuildContext context) {
-    return Theme.of(context).extension<GisPalette>() ?? dark;
+    return Theme.of(context).extension<GisPalette>() ?? light;
   }
 
   @override

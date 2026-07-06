@@ -6,11 +6,14 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../data/models/produit_model.dart';
-import '../../../data/models/category_model.dart';
 import '../../../core/utils/packaging_utils.dart';
+import '../../../core/utils/responsive_utils.dart';
 import '../../viewmodels/products_viewmodel.dart';
 import '../../viewmodels/ventes_viewmodel.dart';
 import '../../../data/repositories/shops_repository.dart';
+import '../../../core/services/app_refresh_listener.dart';
+import '../../../core/services/app_refresh_notifier.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../widgets/gis_ui_kit.dart';
 
 class VentePage extends StatefulWidget {
@@ -20,8 +23,14 @@ class VentePage extends StatefulWidget {
   State<VentePage> createState() => _VentePageState();
 }
 
-class _VentePageState extends State<VentePage> {
+class _VentePageState extends State<VentePage> with AppRefreshListener {
   GisPalette get _p => GisPalette.of(context);
+
+  @override
+  AppRefreshScope get refreshScope => AppRefreshScope.sales;
+
+  @override
+  void onAppRefresh() => _loadData();
 
   // ============================================================
   // STATE
@@ -34,6 +43,7 @@ class _VentePageState extends State<VentePage> {
 
   String? shopId;
   String? devise;
+  String? shopName;
 
   final ScrollController _productsScrollController = ScrollController();
 
@@ -66,6 +76,7 @@ class _VentePageState extends State<VentePage> {
 
       shopId = shopRepo.currentShop!.id;
       devise = shopRepo.currentShop?.devise ?? 'FCFA';
+      shopName = shopRepo.currentShop?.nomBoutique;
 
       final productsVM = Provider.of<ProductsViewModel>(context, listen: false);
       await productsVM.initializeCatalog(shopId!);
@@ -84,71 +95,33 @@ class _VentePageState extends State<VentePage> {
     _addToCart(produit, 1, price, opt.unite, opt.factorToBase);
   }
 
-  void _editCartLinePrice(VentesViewModel vm, int index, NumberFormat format) {
-    final item = vm.panier[index];
-    final unite = item['unite_vente'] ?? 'pièce';
-    final controller = TextEditingController(
-      text: (item['prix_unitaire'] ?? 0).toDouble().toStringAsFixed(0),
-    );
+  ProduitModel? _findProductForCartLine(VentesViewModel vm, Map<String, dynamic> item) {
+    final productId = item['produit_id']?.toString();
+    if (productId == null) return null;
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: _p.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _p.border),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Prix — ${item['nom']}',
-                style:  TextStyle(color: _p.text, fontSize: 15, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                autofocus: true,
-                style:  TextStyle(color: _p.text, fontSize: 18, fontWeight: FontWeight.bold),
-                decoration: InputDecoration(
-                  suffixText: '${devise ?? 'FCFA'} / $unite',
-                  filled: true,
-                  fillColor: _p.surfaceHi,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    final v = double.tryParse(controller.text.replaceAll(',', '.')) ?? 0;
-                    if (v <= 0) return;
-                    vm.modifierPrixLigne(index, v);
-                    Navigator.pop(ctx);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _p.accent,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: Text('Enregistrer'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    final productsVm = Provider.of<ProductsViewModel>(context, listen: false);
+    for (final p in productsVm.products) {
+      if (p.id == productId) return p;
+    }
+
+    final stock = (item['stock'] ?? 0.0).toDouble();
+    return ProduitModel(
+      id: productId,
+      nom: item['nom']?.toString() ?? 'Produit',
+      stock: stock,
+      prixVenteUnitaire: (item['prix_initial'] ?? item['prix_unitaire'] ?? 0).toDouble(),
+      prixAchatTotal: 0,
+      quantiteParUnite: 1,
+      uniteVente: item['unite_vente']?.toString(),
+      typeVente: item['type_vente']?.toString(),
     );
+  }
+
+  void _openCartLineEditor(VentesViewModel vm, int index, NumberFormat format) {
+    if (index < 0 || index >= vm.panier.length) return;
+    final product = _findProductForCartLine(vm, vm.panier[index]);
+    if (product == null) return;
+    _openProductModal(product, cartLineIndex: index);
   }
 
   void _addToCart(ProduitModel produit, int qty, double price, String selectedUnite, double facteurConversion) {
@@ -203,6 +176,7 @@ class _VentePageState extends State<VentePage> {
       if (vm.isCreditMode) vm.setAmountPaid(0);
       if (mounted) {
         await Provider.of<ProductsViewModel>(context, listen: false).refreshProducts();
+        refreshAppData(context);
       }
     } else {
       _showSnackBar("Erreur d'enregistrement", false);
@@ -217,8 +191,7 @@ class _VentePageState extends State<VentePage> {
   Widget build(BuildContext context) {
     final format = NumberFormat.currency(locale: 'fr_FR', symbol: devise ?? 'FCFA', decimalDigits: 0);
     final isCatalogLoading = context.watch<ProductsViewModel>().isLoading;
-    final width = MediaQuery.of(context).size.width;
-    final isMobile = width < 800;
+    final isMobile = !ResponsiveUtils.useDesktopPosLayout(context);
 
     if (isCatalogLoading) {
       return Scaffold(
@@ -242,7 +215,7 @@ class _VentePageState extends State<VentePage> {
   Widget _buildMobileLayout(NumberFormat format) {
     return Column(
       children: [
-        _buildHeader(format),
+        _buildPosHero(format),
         _buildSearchBar(),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
@@ -261,8 +234,8 @@ class _VentePageState extends State<VentePage> {
                 Expanded(
                   child: TabBarView(
                     children: [
-                      _buildProductsList(format),
-                      _buildCart(format),
+                      _buildProductsCatalog(format),
+                      _buildCartShell(format),
                     ],
                   ),
                 ),
@@ -279,55 +252,175 @@ class _VentePageState extends State<VentePage> {
   // ============================================================
 
   Widget _buildDesktopLayout(NumberFormat format) {
-    return Row(
-      children: [
-        Expanded(
-          flex: 2,
-          child: Column(
-            children: [
-              _buildHeader(format),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-                child: _buildSearchBar(isPadding: false),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                child: _buildCategoryRow(),
-              ),
-              Expanded(child: _buildProductsList(format)),
-            ],
-          ),
-        ),
-        Container(
-          width: 1,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0x00FFFFFF), _p.borderStrong, Color(0x00FFFFFF)],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildPosHero(format, isWide: true),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: _buildCatalogShell(format),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 2,
+                  child: _buildCartShell(format),
+                ),
+              ],
             ),
           ),
-        ),
-        SizedBox(width: 420, child: _buildCart(format)),
-      ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCatalogShell(NumberFormat format) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: _p.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _p.border.withValues(alpha: isDark ? 0.55 : 0.35)),
+        boxShadow: isDark
+            ? [BoxShadow(color: Colors.black.withValues(alpha: 0.22), blurRadius: 16, offset: const Offset(0, 6))]
+            : [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 16, offset: const Offset(0, 4))],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+            child: Row(
+              children: [
+                Icon(Icons.grid_view_rounded, size: 14, color: _p.success),
+                const SizedBox(width: 6),
+                Text(
+                  'Catalogue',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: _p.text,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                Consumer<ProductsViewModel>(
+                  builder: (_, vm, __) => Text(
+                    '${vm.products.length} prod.',
+                    style: TextStyle(color: _p.textMute, fontSize: 11, fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
+            child: _buildSearchBar(isPadding: false),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 4, left: 14, right: 14),
+            child: _buildCategoryRow(pad: 0),
+          ),
+          Expanded(child: _buildProductsCatalog(format, inset: false)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCartShell(NumberFormat format) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: _p.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _p.border.withValues(alpha: isDark ? 0.55 : 0.35)),
+        boxShadow: isDark
+            ? [BoxShadow(color: Colors.black.withValues(alpha: 0.22), blurRadius: 16, offset: const Offset(0, 6))]
+            : [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 16, offset: const Offset(0, 4))],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: _buildCart(format),
     );
   }
 
   // ============================================================
-  // HEADER
+  // HERO POS
   // ============================================================
 
-  Widget _buildHeader(NumberFormat format) {
-    return GisPageHeader(
-      icon: Icons.point_of_sale_rounded,
-      title: 'Caisse',
-      subtitle: 'Vente rapide',
-      onRefresh: _loadData,
-    );
+  Color _productAccent(String seed) {
+    final palette = [_p.success, _p.info, _p.accent, _p.warning, _p.gold];
+    return palette[seed.hashCode.abs() % palette.length];
   }
 
-  Widget _buildIconButton(IconData icon, VoidCallback onTap, {String? tooltip}) {
-    return GisIconButton(icon: icon, onTap: onTap, tooltip: tooltip);
+  Widget _buildPosHero(NumberFormat format, {bool isWide = false}) {
+    final timeLabel = DateFormat('HH:mm', 'fr_FR').format(DateTime.now());
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(isWide ? 0 : 16, 0, isWide ? 0 : 16, 2),
+      child: Consumer2<ProductsViewModel, VentesViewModel>(
+        builder: (context, productsVm, ventesVm, _) {
+          final qtyPanier = ventesVm.panier.fold<int>(
+            0,
+            (s, i) => s + ((i['quantite'] ?? 1) as int),
+          );
+          final stats = <String>[
+            '${productsVm.products.length} prod.',
+            '$qtyPanier panier',
+            if (ventesVm.panier.isNotEmpty)
+              '${ventesVm.margePercentage.toStringAsFixed(0)}% marge',
+          ].join(' · ');
+
+          return Row(
+            children: [
+              Icon(Icons.point_of_sale_rounded, size: 15, color: _p.success),
+              const SizedBox(width: 6),
+              Text(
+                ' · $timeLabel',
+                style: TextStyle(color: _p.textMute, fontSize: 11, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  stats,
+                  style: TextStyle(color: _p.textMute, fontSize: 11, fontWeight: FontWeight.w500),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                ),
+              ),
+              if (ventesVm.panier.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Text(
+                  format.format(ventesVm.totalTTC),
+                  style: GoogleFonts.plusJakartaSans(
+                    color: _p.success,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+              SizedBox(
+                width: 32,
+                height: 32,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  icon: Icon(Icons.refresh_rounded, size: 17, color: _p.textMute),
+                  tooltip: 'Actualiser',
+                  onPressed: _loadData,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   // ============================================================
@@ -352,71 +445,53 @@ class _VentePageState extends State<VentePage> {
   // CATEGORY CHIPS (purement visuel — placeholder cohérent)
   // ============================================================
 
-  Widget _buildCategoryRow() {
+  Widget _buildCategoryRow({double? pad}) {
     return Consumer<ProductsViewModel>(
       builder: (context, vm, _) {
-        return SizedBox(
-          height: 36,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            children: [
-              _buildCategoryChip(
-                label: 'Tout',
-                icon: Icons.apps_rounded,
-                isActive: vm.selectedCategoryId == null,
-                onTap: () => vm.selectCategory(null),
-              ),
-              ...vm.categories.map(
-                (CategoryModel cat) => _buildCategoryChip(
-                  label: cat.nom,
-                  icon: Icons.label_outline_rounded,
-                  isActive: vm.selectedCategoryId == cat.id,
-                  onTap: () => vm.selectCategory(cat.id),
+        final tabs = <(String?, String)>[(null, 'Tout'), ...vm.categories.map((c) => (c.id, c.nom))];
+
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: EdgeInsets.symmetric(horizontal: pad ?? 16),
+          child: Row(
+            children: tabs.map((tab) {
+              final selected = vm.selectedCategoryId == tab.$1;
+              return Padding(
+                padding: const EdgeInsets.only(right: 20),
+                child: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    vm.selectCategory(tab.$1);
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tab.$2,
+                        style: TextStyle(
+                          color: selected ? _p.success : _p.textMute,
+                          fontSize: 13,
+                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        height: 3,
+                        width: selected ? 32 : 0,
+                        decoration: BoxDecoration(
+                          color: _p.success,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              );
+            }).toList(),
           ),
         );
       },
-    );
-  }
-
-  Widget _buildCategoryChip({
-    required String label,
-    required IconData icon,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(
-            color: isActive ? _p.accent.withOpacity(0.12) : _p.surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: isActive ? _p.accent.withOpacity(0.4) : _p.border),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 13, color: isActive ? _p.accentSoft : _p.textMute),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isActive ? _p.accentSoft : _p.textMute,
-                  fontSize: 12,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -425,64 +500,109 @@ class _VentePageState extends State<VentePage> {
   // ============================================================
 
   Widget _buildSegmentedTabBar() {
-    return Container(
-      height: 44,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: _p.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _p.border),
-      ),
-      child: TabBar(
-        indicator: BoxDecoration(
-          color: _p.accent.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: _p.accent.withOpacity(0.35)),
-        ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
-        labelColor: _p.accentSoft,
-        unselectedLabelColor: _p.textMute,
-        labelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        unselectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-        tabs: const [
-          Tab(height: 36, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(Icons.inventory_2_rounded, size: 14),
-            SizedBox(width: 6),
-            Text('Produits'),
-          ])),
-          Tab(height: 36, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(Icons.shopping_bag_outlined, size: 14),
-            SizedBox(width: 6),
-            Text('Panier'),
-          ])),
-        ],
-      ),
+    return Consumer<VentesViewModel>(
+      builder: (context, vm, _) {
+        final count = vm.panier.length;
+        return Container(
+          height: 46,
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: _p.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _p.border),
+          ),
+          child: TabBar(
+            indicator: BoxDecoration(
+              color: _p.success.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _p.success.withValues(alpha: 0.35)),
+            ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            dividerColor: Colors.transparent,
+            labelColor: _p.success,
+            unselectedLabelColor: _p.textMute,
+            labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            tabs: [
+              const Tab(
+                height: 38,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.grid_view_rounded, size: 15),
+                    SizedBox(width: 6),
+                    Text('Produits'),
+                  ],
+                ),
+              ),
+              Tab(
+                height: 38,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.shopping_bag_outlined, size: 15),
+                    const SizedBox(width: 6),
+                    const Text('Panier'),
+                    if (count > 0) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _p.success,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '$count',
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
   // ============================================================
-  // PRODUCTS LIST (MOBILE)
+  // PRODUCTS GRID (POS)
   // ============================================================
 
-  Widget _buildProductsList(NumberFormat format) {
+  Widget _buildProductsCatalog(NumberFormat format, {bool inset = true}) {
     return Consumer2<ProductsViewModel, VentesViewModel>(
       builder: (context, productsVm, ventesVm, _) {
         if (productsVm.products.isEmpty) {
           return _buildEmptyState('Aucun produit', 'Ajoutez des produits à votre catalogue', Icons.inventory_2_outlined);
         }
 
-        return ListView.builder(
-          controller: _productsScrollController,
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-          itemCount: productsVm.products.length,
-          itemBuilder: (_, index) => _buildProductListItem(productsVm.products[index], format, ventesVm),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final w = constraints.maxWidth;
+            final crossAxisCount = w >= 1100 ? 5 : (w >= 850 ? 4 : (w >= 560 ? 3 : 2));
+            const spacing = 8.0;
+
+            return GridView.builder(
+              controller: _productsScrollController,
+              padding: EdgeInsets.fromLTRB(inset ? 16 : 10, 4, inset ? 16 : 10, 12),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                mainAxisSpacing: spacing,
+                crossAxisSpacing: spacing,
+                childAspectRatio: 1.55,
+              ),
+              itemCount: productsVm.products.length,
+              itemBuilder: (_, index) => _buildProductTile(productsVm.products[index], format, ventesVm),
+            );
+          },
         );
       },
     );
   }
 
-  Widget _buildProductListItem(ProduitModel p, NumberFormat format, VentesViewModel ventesVm) {
+  Widget _buildProductTile(ProduitModel p, NumberFormat format, VentesViewModel ventesVm) {
     final stockDispo = ventesVm.stockDisponible(p);
     final pAffiche = p.copyWith(stock: stockDispo < 0 ? 0 : stockDispo);
     final isOutOfStock = stockDispo <= 0;
@@ -499,84 +619,103 @@ class _VentePageState extends State<VentePage> {
       texteStock = '$texteStock dispo';
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: _p.surface,
+    final accent = _productAccent(p.nom);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final inCart = ventesVm.panier.any((i) => i['produit_id'] == p.id);
+    final prixLabel = '${format.format(p.prixVenteUnitaire)} / $unite';
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isOutOfStock ? null : () => _openProductModal(p),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _p.border),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: isOutOfStock ? null : () => _quickAddToCart(p),
-          onLongPress: isOutOfStock ? null : () => _openProductModal(p),
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: isOutOfStock ? _p.surfaceHi : _p.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: inCart
+                  ? accent.withValues(alpha: 0.5)
+                  : (isOutOfStock ? _p.border.withValues(alpha: 0.45) : _p.border.withValues(alpha: isDark ? 0.5 : 0.35)),
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: _p.accent.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: _p.accent.withOpacity(0.2)),
-                  ),
-                  child:  Icon(Icons.inventory_2_rounded, color: _p.accentSoft, size: 20),
-                ),
-                const SizedBox(width: 12),
+                Container(width: 3, color: isOutOfStock ? _p.border : accent),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        p.nom,
-                        style: TextStyle(
-                          color: isOutOfStock ? _p.textMute : _p.text,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 7, 6, 7),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                p.nom,
+                                style: TextStyle(
+                                  color: isOutOfStock ? _p.textMute : _p.text,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.15,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (!isOutOfStock)
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    HapticFeedback.lightImpact();
+                                    _quickAddToCart(p);
+                                  },
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      color: accent.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(7),
+                                    ),
+                                    child: Icon(Icons.add_rounded, color: accent, size: 16),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${format.format(p.prixVenteUnitaire)} / $unite',
-                        style: TextStyle(
-                          color: isOutOfStock ? _p.textDim : _p.text,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                        Text(
+                          prixLabel,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: isOutOfStock ? _p.textDim : accent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            height: 1.1,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  onPressed: isOutOfStock ? null : () => _openProductModal(p),
-                  icon: Icon(Icons.tune_rounded, size: 18, color: isOutOfStock ? _p.textDim : _p.accentSoft),
-                  tooltip: 'Prix, unité & quantité',
-                ),
-                const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: stockColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: stockColor.withOpacity(0.2)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(stockIcon, style: TextStyle(fontSize: 10, color: stockColor)),
-                      const SizedBox(width: 4),
-                      Text(
-                        texteStock,
-                        style: TextStyle(fontSize: 10, color: stockColor),
-                      ),
-                    ],
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: stockColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Text(
+                            '$stockIcon $texteStock',
+                            style: TextStyle(fontSize: 9, color: stockColor, fontWeight: FontWeight.w600, height: 1.1),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -631,16 +770,41 @@ class _VentePageState extends State<VentePage> {
   // MODAL PRODUIT
   // ============================================================
 
-  void _openProductModal(ProduitModel product) {
-    final qtyController = TextEditingController(text: "1");
+  void _openProductModal(ProduitModel product, {int? cartLineIndex}) {
+    final ventesVm = Provider.of<VentesViewModel>(context, listen: false);
+    final isEdit = cartLineIndex != null;
+    Map<String, dynamic>? cartItem;
+    if (isEdit) {
+      cartItem = ventesVm.panier[cartLineIndex];
+    }
+
+    final qtyController = TextEditingController(
+      text: isEdit ? '${cartItem!['quantite'] ?? 1}' : '1',
+    );
     final saleOptions = PackagingUtils.saleOptions(product);
-    final initialOption = saleOptions.first;
+    if (saleOptions.isEmpty) return;
+
+    final cartUnite = cartItem?['unite_vente']?.toString();
+    final initialOption = isEdit && cartUnite != null
+        ? saleOptions.firstWhere(
+            (o) => o.unite == cartUnite,
+            orElse: () => saleOptions.first,
+          )
+        : saleOptions.first;
+
+    final initialPrice = isEdit
+        ? (cartItem!['prix_unitaire'] ?? 0).toDouble()
+        : PackagingUtils.priceForUnit(product, initialOption.unite);
 
     final priceController = TextEditingController(
-      text: PackagingUtils.priceForUnit(product, initialOption.unite).toStringAsFixed(0),
+      text: initialPrice.toStringAsFixed(0),
     );
-    final ventesVm = Provider.of<VentesViewModel>(context, listen: false);
-    final double maxStock = ventesVm.stockDisponible(product);
+
+    final lineQty = isEdit ? ((cartItem!['quantite'] ?? 1) as num).toDouble() : 0.0;
+    final lineFactor = isEdit ? (cartItem!['facteur_conversion'] ?? 1.0).toDouble() : 0.0;
+    final double maxStock = isEdit
+        ? ventesVm.stockDisponible(product) + lineQty * lineFactor
+        : ventesVm.stockDisponible(product);
 
     String baseUnite = product.uniteVente ?? 'pièce';
     String selectedUnite = initialOption.unite;
@@ -717,14 +881,25 @@ class _VentePageState extends State<VentePage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
+                            isEdit ? 'Modifier la ligne' : 'Nouvelle vente',
+                            style: TextStyle(
+                              color: _p.textMute,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
                             product.nom,
-                            style:  TextStyle(
+                            style: TextStyle(
                               color: _p.text,
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
                               letterSpacing: -0.2,
                             ),
-                            maxLines: 1, overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 4),
                           Row(
@@ -1026,17 +1201,32 @@ class _VentePageState extends State<VentePage> {
                 // Actions
                 Row(
                   children: [
+                    if (isEdit)
+                      OutlinedButton(
+                        onPressed: () {
+                          ventesVm.modifierQuantite(cartLineIndex, 0);
+                          Navigator.pop(modalContext);
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                          side: BorderSide(color: _p.danger.withValues(alpha: 0.4)),
+                          foregroundColor: _p.danger,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Icon(Icons.delete_outline_rounded, size: 18),
+                      ),
+                    if (isEdit) const SizedBox(width: 8),
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () => Navigator.pop(modalContext),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          side:  BorderSide(color: _p.border, width: 0.5),
+                          side: BorderSide(color: _p.border, width: 0.5),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           foregroundColor: _p.textMute,
                         ),
-                        child: Text(
-                          "Annuler",
+                        child: const Text(
+                          'Annuler',
                           style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                         ),
                       ),
@@ -1045,34 +1235,44 @@ class _VentePageState extends State<VentePage> {
                     Expanded(
                       flex: 2,
                       child: ElevatedButton(
-                        onPressed: stockDepasse || currentPrice <= 0 ? null : () {
-                          Navigator.pop(modalContext);
-                          _addToCart(product, currentQty, currentPrice, selectedUnite, facteurConversion);
-                        },
+                        onPressed: stockDepasse || currentPrice <= 0
+                            ? null
+                            : () {
+                                Navigator.pop(modalContext);
+                                if (isEdit) {
+                                  final ok = ventesVm.mettreAJourLignePanier(
+                                    cartLineIndex,
+                                    currentQty,
+                                    currentPrice,
+                                    selectedUnite,
+                                    facteurConversion,
+                                  );
+                                  if (!ok) _showSnackBar('Stock insuffisant', false);
+                                } else {
+                                  _addToCart(product, currentQty, currentPrice, selectedUnite, facteurConversion);
+                                }
+                              },
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          backgroundColor: _p.accent,
+                          backgroundColor: _p.success,
                           disabledBackgroundColor: _p.surfaceHi,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           elevation: 0,
-                          shadowColor: Colors.transparent,
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              Icons.add_shopping_cart_rounded,
+                              isEdit ? Icons.check_rounded : Icons.add_shopping_cart_rounded,
                               size: 16,
-                              color: stockDepasse ? _p.textDim : Colors.white,
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              "Ajouter au panier",
-                              style: TextStyle(
+                              isEdit ? 'Enregistrer' : 'Ajouter au panier',
+                              style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.2,
-                                color: stockDepasse ? _p.textDim : Colors.white,
                               ),
                             ),
                           ],
@@ -1132,145 +1332,180 @@ class _VentePageState extends State<VentePage> {
   // ============================================================
 
   Widget _buildCart(NumberFormat format) {
-    return Container(
-      color: _p.bg,
-      child: Consumer<VentesViewModel>(
-        builder: (context, vm, _) {
-          if (vm.panier.isEmpty) {
-            return _buildEmptyCart();
-          }
+    return Consumer<VentesViewModel>(
+      builder: (context, vm, _) {
+        return Column(
+          children: [
+            _buildCartHeader(vm),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  if (vm.panier.isEmpty)
+                    SizedBox(
+                      height: 48,
+                      child: _buildEmptyCart(),
+                    )
+                  else
+                    ...vm.panier.asMap().entries.map(
+                      (e) => Padding(
+                        padding: EdgeInsets.fromLTRB(16, e.key == 0 ? 8 : 0, 16, 8),
+                        child: _buildCartLine(vm, e.key, format),
+                      ),
+                    ),
+                  if (vm.isCreditMode && vm.panier.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: _buildCreditFields(vm, format),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            _buildCartFooter(vm, format),
+          ],
+        );
+      },
+    );
+  }
 
-          return Column(
+  Widget _buildCreditFields(VentesViewModel vm, NumberFormat format) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildPremiumField(
+          clientNameController,
+          'Nom du client',
+          Icons.person_outline_rounded,
+          isRequired: true,
+        ),
+        const SizedBox(height: 8),
+        _buildPremiumField(
+          amountPaidController,
+          'Acompte',
+          Icons.account_balance_wallet_outlined,
+          suffix: devise,
+          isNumber: true,
+          onChanged: (v) => vm.setAmountPaid(double.tryParse(v) ?? 0),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: _p.gold.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _p.gold.withValues(alpha: 0.25), width: 0.5),
+          ),
+          child: Row(
             children: [
-              _buildCartHeader(vm),
-              Expanded(child: _buildCartItems(vm, format)),
-              _buildCartFooter(vm, format),
+              Icon(Icons.hourglass_bottom_rounded, color: _p.gold, size: 14),
+              const SizedBox(width: 8),
+              Text('Reste à payer', style: TextStyle(color: _p.textMute, fontSize: 11, fontWeight: FontWeight.w600)),
+              const Spacer(),
+              Text(
+                format.format(vm.montantRestant),
+                style: TextStyle(color: _p.gold, fontSize: 13, fontWeight: FontWeight.w800),
+              ),
             ],
-          );
-        },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCartLine(VentesViewModel vm, int index, NumberFormat format) {
+    final item = vm.panier[index];
+    final prixActuel = (item['prix_unitaire'] ?? 0).toDouble();
+    final qty = (item['quantite'] ?? 1) as int;
+    final totalLigne = prixActuel * qty;
+    final uniteVente = item['unite_vente'] ?? 'pièce';
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _openCartLineEditor(vm, index, format),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          decoration: BoxDecoration(
+            color: _p.bg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _p.border.withValues(alpha: 0.5), width: 0.5),
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  width: 3,
+                  decoration: BoxDecoration(
+                    color: _p.success,
+                    borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: _p.success.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '$qty',
+                              style: TextStyle(color: _p.success, fontSize: 12, fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                item['nom'] ?? '',
+                                style: TextStyle(color: _p.text, fontWeight: FontWeight.w600, fontSize: 12),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                '${format.format(prixActuel)} / $uniteVente · ${format.format(totalLigne)}',
+                                style: TextStyle(color: _p.textMute, fontSize: 10),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(Icons.edit_note_rounded, size: 18, color: _p.textMute),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildEmptyCart() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72, height: 72,
-              decoration: BoxDecoration(
-                color: _p.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _p.border, width: 0.5),
-              ),
-              child: Icon(
-                Icons.shopping_bag_outlined,
-                size: 32,
-                color: _p.textDim.withOpacity(0.6),
-              ),
-            ),
-            const SizedBox(height: 16),
-             Text(
-              "Panier vide",
-              style: TextStyle(
-                color: _p.text,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 4),
-             Text(
-              "Tapez un produit pour l'ajouter · crayon pour le prix",
-              style: TextStyle(color: _p.textMute, fontSize: 12, fontWeight: FontWeight.w500),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCartHeader(VentesViewModel vm) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-      decoration:  BoxDecoration(
-        color: _p.bg,
-        border: Border(bottom: BorderSide(color: _p.border, width: 0.5)),
-      ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 36, height: 36,
-            decoration: BoxDecoration(
-              color: _p.accent.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child:  Icon(Icons.shopping_bag_rounded, color: _p.accentSoft, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                 Text(
-                  "PANIER",
-                  style: TextStyle(
-                    color: _p.text,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: _p.accent.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        "${vm.panier.length}",
-                        style:  TextStyle(
-                          color: _p.accentSoft,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      vm.panier.length > 1 ? "articles" : "article",
-                      style:  TextStyle(
-                        color: _p.textMute,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => vm.viderPanier(),
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: _p.danger.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: _p.danger.withOpacity(0.2), width: 0.5),
-                ),
-                child:  Icon(Icons.delete_outline_rounded, color: _p.danger, size: 16),
-              ),
+          Icon(Icons.shopping_bag_outlined, size: 16, color: _p.textDim.withValues(alpha: 0.7)),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              'Panier vide',
+              style: TextStyle(color: _p.textMute, fontSize: 12, fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -1278,138 +1513,38 @@ class _VentePageState extends State<VentePage> {
     );
   }
 
-  Widget _buildCartItems(VentesViewModel vm, NumberFormat format) {
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      itemCount: vm.panier.length,
-      itemBuilder: (context, index) {
-        final item = vm.panier[index];
-        final prixActuel = (item['prix_unitaire'] ?? 0).toDouble();
-        final qty = (item['quantite'] ?? 1) as int;
-        final totalLigne = prixActuel * qty;
-        final uniteVente = item['unite_vente'] ?? 'pièce';
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: _p.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _p.border, width: 0.5),
+  Widget _buildCartHeader(VentesViewModel vm) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: _p.border.withValues(alpha: 0.5), width: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.receipt_long_rounded, color: _p.success, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              vm.panier.isEmpty
+                  ? 'Ticket'
+                  : 'Ticket · ${vm.panier.length} ligne${vm.panier.length > 1 ? 's' : ''}',
+              style: GoogleFonts.plusJakartaSans(
+                color: _p.text,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
-          child: Row(
-            children: [
-              // Qty badge
-              Container(
-                width: 36, height: 36,
-                decoration: BoxDecoration(
-                  color: _p.accent.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Text(
-                    "$qty",
-                    style:  TextStyle(
-                      color: _p.accentSoft,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
+          if (vm.panier.isNotEmpty)
+            InkWell(
+              onTap: () => vm.viderPanier(),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.all(6),
+                child: Icon(Icons.delete_outline_rounded, color: _p.danger, size: 16),
               ),
-              const SizedBox(width: 12),
-              // Item info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      item['nom'] ?? '',
-                      style:  TextStyle(
-                        color: _p.text,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        letterSpacing: -0.1,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    InkWell(
-                      onTap: () => _editCartLinePrice(vm, index, format),
-                      borderRadius: BorderRadius.circular(4),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '${format.format(prixActuel)} / $uniteVente',
-                            style:  TextStyle(
-                              color: _p.textMute,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(Icons.edit_outlined, size: 12, color: _p.accentSoft.withOpacity(0.8)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Stepper
-              Row(
-                children: [
-                  _buildMiniStepper(
-                    Icons.remove_rounded,
-                    () => vm.modifierQuantite(index, qty - 1),
-                  ),
-                  const SizedBox(width: 6),
-                  _buildMiniStepper(
-                    Icons.add_rounded,
-                    () => vm.modifierQuantite(index, qty + 1),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 8),
-              // Total
-              SizedBox(
-                width: 80,
-                child: Text(
-                  format.format(totalLigne),
-                  textAlign: TextAlign.right,
-                  style:  TextStyle(
-                    color: _p.text,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildMiniStepper(IconData icon, VoidCallback onTap) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(7),
-        child: Container(
-          width: 26, height: 26,
-          decoration: BoxDecoration(
-            color: _p.surfaceHi,
-            borderRadius: BorderRadius.circular(7),
-            border: Border.all(color: _p.border, width: 0.5),
-          ),
-          child: Icon(icon, size: 12, color: _p.text),
-        ),
+            ),
+        ],
       ),
     );
   }
@@ -1420,204 +1555,115 @@ class _VentePageState extends State<VentePage> {
 
   Widget _buildCartFooter(VentesViewModel vm, NumberFormat format) {
     final modeCredit = vm.isCreditMode;
+    final isEmpty = vm.panier.isEmpty;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
       decoration: BoxDecoration(
-        color: _p.bg,
-        border:  Border(top: BorderSide(color: _p.border, width: 0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
-          ),
-        ],
+        border: Border(top: BorderSide(color: _p.border.withValues(alpha: 0.5), width: 0.5)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Total hero
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  _p.accent.withOpacity(0.12),
-                  _p.accent.withOpacity(0.04),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _p.accent.withOpacity(0.25), width: 0.5),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Column(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      "TOTAL",
+                      'TOTAL',
                       style: TextStyle(
-                        color: _p.accentSoft.withOpacity(0.8),
-                        fontSize: 10,
+                        color: _p.success.withValues(alpha: 0.85),
+                        fontSize: 9,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: 1.0,
+                        letterSpacing: 0.8,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "${vm.panier.length} article${vm.panier.length > 1 ? 's' : ''}",
-                      style:  TextStyle(
-                        color: _p.textMute,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
+                    if (!isEmpty)
+                      Text(
+                        'Marge ${format.format(vm.benefice)}',
+                        style: TextStyle(
+                          color: vm.isPerte ? _p.danger : _p.gold,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
                   ],
                 ),
-                const Spacer(),
-                Text(
-                  format.format(vm.totalTTC),
-                  style:  TextStyle(
-                    color: _p.text,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.8,
-                  ),
+              ),
+              Text(
+                format.format(vm.totalTTC),
+                style: GoogleFonts.plusJakartaSans(
+                  color: _p.text,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.6,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-
-          const SizedBox(height: 16),
-
-          // Payment mode segmented
+          const SizedBox(height: 10),
           Container(
-            height: 44,
-            padding: const EdgeInsets.all(4),
+            height: 40,
+            padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
-              color: _p.surface,
-              borderRadius: BorderRadius.circular(12),
+              color: _p.bg,
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: _p.border, width: 0.5),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: _buildSegmentedItem(
-                    "Espèces",
+                    'Espèces',
                     Icons.payments_rounded,
                     !modeCredit,
-                    _p.accent,
-                    () => vm.setCreditMode(false),
+                    _p.success,
+                    isEmpty ? () {} : () => vm.setCreditMode(false),
                   ),
                 ),
                 Expanded(
                   child: _buildSegmentedItem(
-                    "Crédit",
+                    'Crédit',
                     Icons.schedule_rounded,
                     modeCredit,
                     _p.gold,
-                    () => vm.setCreditMode(true),
+                    isEmpty ? () {} : () => vm.setCreditMode(true),
                   ),
                 ),
               ],
             ),
           ),
-
-          if (modeCredit) ...[
-            const SizedBox(height: 14),
-            _buildPremiumField(
-              clientNameController,
-              "Nom du client",
-              Icons.person_outline_rounded,
-              isRequired: true,
-            ),
-            const SizedBox(height: 8),
-            _buildPremiumField(
-              amountPaidController,
-              "Acompte",
-              Icons.account_balance_wallet_outlined,
-              suffix: devise,
-              isNumber: true,
-              onChanged: (v) => vm.setAmountPaid(double.tryParse(v) ?? 0),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: _p.gold.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: _p.gold.withOpacity(0.25), width: 0.5),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 28, height: 28,
-                    decoration: BoxDecoration(
-                      color: _p.gold.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(7),
-                    ),
-                    child:  Icon(Icons.hourglass_bottom_rounded, color: _p.gold, size: 14),
-                  ),
-                  const SizedBox(width: 10),
-                   Text(
-                    "Reste à payer",
-                    style: TextStyle(
-                      color: _p.textMute,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    format.format(vm.montantRestant),
-                    style:  TextStyle(
-                      color: _p.gold,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
-          const SizedBox(height: 16),
-
-          // CTA
+          const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
-            height: 52,
+            height: 44,
             child: ElevatedButton(
-              onPressed: _validateSale,
+              onPressed: isEmpty ? null : _validateSale,
               style: ElevatedButton.styleFrom(
-                backgroundColor: modeCredit ? _p.gold : _p.accent,
+                backgroundColor: modeCredit ? _p.gold : _p.success,
                 disabledBackgroundColor: _p.surfaceHi,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                disabledForegroundColor: _p.textDim,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 elevation: 0,
-                shadowColor: Colors.transparent,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     modeCredit ? Icons.receipt_long_rounded : Icons.point_of_sale_rounded,
-                    size: 18,
-                    color: Colors.white,
+                    size: 16,
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Text(
-                    modeCredit ? "VALIDER LE CRÉDIT" : "ENCAISSER",
-                    style: TextStyle(
+                    modeCredit ? 'VALIDER CRÉDIT' : 'ENCAISSER',
+                    style: const TextStyle(
                       fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                      letterSpacing: 0.8,
-                      color: Colors.white,
+                      fontSize: 13,
+                      letterSpacing: 0.6,
                     ),
                   ),
                 ],

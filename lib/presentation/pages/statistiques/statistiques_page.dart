@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/gis_palette.dart';
 import '../../../core/theme/gis_theme_ext.dart';
 import 'package:flutter/services.dart';
@@ -8,9 +9,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../../../data/repositories/shops_repository.dart';
+import '../../../core/services/app_refresh_listener.dart';
+import '../../../core/services/app_refresh_notifier.dart';
+import '../../../core/utils/responsive_utils.dart';
 import '../../viewmodels/stats_viewmodel.dart';
 import '../../widgets/custom_charts.dart';
 import '../../widgets/gis_dashboard_widgets.dart';
+import '../../widgets/gis_report_sheet.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -19,13 +24,20 @@ class StatsScreen extends StatefulWidget {
   State<StatsScreen> createState() => _StatsScreenState();
 }
 
-class _StatsScreenState extends State<StatsScreen> {
+class _StatsScreenState extends State<StatsScreen> with AppRefreshListener {
   GisPalette get _p => GisPalette.of(context);
+
+  @override
+  AppRefreshScope get refreshScope => AppRefreshScope.stats;
+
+  @override
+  void onAppRefresh() => _loadData();
 
 
   String? shopId;
   String? shopName;
   String? devise;
+  bool _exportingReport = false;
 
   StatsChartTheme get _chartTheme =>  StatsChartTheme(
         surface: _p.surface,
@@ -73,6 +85,42 @@ class _StatsScreenState extends State<StatsScreen> {
     return '${NumberFormat('#,##0', 'fr_FR').format(value.round())} $d';
   }
 
+  String _trendLabel(double evo) => '${evo >= 0 ? '+' : ''}${evo.toStringAsFixed(1)}%';
+
+  Future<void> _exportReport(StatsViewModel statsVM) async {
+    if (shopId == null || _exportingReport) return;
+    setState(() => _exportingReport = true);
+
+    try {
+      final data = await statsVM.buildReportData(
+        shopId: shopId!,
+        shopName: shopName ?? 'Boutique',
+        devise: devise ?? 'FCFA',
+      );
+      if (!mounted) return;
+
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: _p.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (_) => GisReportSheet(
+          data: data,
+          periodeId: statsVM.selectedPeriode,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Impossible de générer le rapport'), behavior: SnackBarBehavior.floating),
+      );
+    } finally {
+      if (mounted) setState(() => _exportingReport = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -100,20 +148,30 @@ class _StatsScreenState extends State<StatsScreen> {
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                   slivers: [
-                    SliverToBoxAdapter(child: _buildPageHeader(statsVM)),
-                    SliverToBoxAdapter(child: _buildPeriodSelector(statsVM)),
-                    SliverToBoxAdapter(child: _buildMainKpiGrid(statsVM)),
-                    SliverToBoxAdapter(child: _buildEvolutionSection(statsVM)),
-                    SliverToBoxAdapter(child: _buildDonutSection(statsVM)),
-                    SliverToBoxAdapter(child: _buildRingMetrics(statsVM)),
+                    SliverToBoxAdapter(child: _buildFilyHeader(statsVM)),
+                    SliverToBoxAdapter(child: _buildFilySummaryRow(statsVM)),
+                    SliverToBoxAdapter(child: _buildFilyMainContent(statsVM)),
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                      padding: EdgeInsets.fromLTRB(
+                        ResponsiveUtils.pageHorizontalPadding(context),
+                        8,
+                        ResponsiveUtils.pageHorizontalPadding(context),
+                        ResponsiveUtils.scrollBottomInset(context),
+                      ),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
-                          _buildTopProducts(statsVM),
+                          GisReportsPanel(
+                            periodeLabel: statsVM.periodeLabel,
+                            totalCA: statsVM.totalCA,
+                            totalVentes: statsVM.totalVentes,
+                            devise: devise ?? 'FCFA',
+                            isLoading: _exportingReport,
+                            onExport: () => _exportReport(statsVM),
+                          ),
                           const SizedBox(height: 16),
-                          _buildAnalysis(statsVM),
-                          const SizedBox(height: 24),
+                          _buildFilyProductsTable(statsVM),
+                          const SizedBox(height: 16),
+                          _buildFilyAnalysis(statsVM),
                         ]),
                       ),
                     ),
@@ -127,13 +185,478 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
-  Widget _buildPageHeader(StatsViewModel statsVM) {
-    final now = DateFormat('dd/MM/yyyy', 'fr_FR').format(DateTime.now());
-    return GisAnalyticsHeader(
-      title: 'Statistiques avancées',
-      subtitle: 'Analysez les performances de ${shopName ?? 'votre boutique'} · données réelles (hors annulations)',
-      badge: now,
-      onRefresh: statsVM.isLoading ? null : () => statsVM.refreshData(shopId!),
+  Widget _buildFilyHeader(StatsViewModel statsVM) {
+    final pad = ResponsiveUtils.pageHorizontalPadding(context);
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(pad, 20, pad, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${shopName ?? 'Votre boutique'} · ${statsVM.periodeLabel}',
+                      style: TextStyle(color: _p.textMute, fontSize: 13, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              Material(
+                color: _p.surfaceHi,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  onTap: _exportingReport ? null : () => _exportReport(statsVM),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _p.border),
+                    ),
+                    child: _exportingReport
+                        ? Padding(
+                            padding: const EdgeInsets.all(11),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: _p.accent),
+                          )
+                        : Icon(Icons.assessment_outlined, color: _p.text, size: 20),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Material(
+                color: _p.surfaceHi,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  onTap: statsVM.isLoading ? null : () => statsVM.refreshData(shopId!),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _p.border),
+                    ),
+                    child: Icon(Icons.refresh_rounded, color: _p.text, size: 20),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _buildPeriodSelector(statsVM),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilySummaryRow(StatsViewModel statsVM) {
+    final pad = ResponsiveUtils.pageHorizontalPadding(context);
+    final evoCa = statsVM.evolutionCA;
+    final evoVentes = statsVM.evolutionVentes;
+
+    final cards = [
+      (
+        label: 'Chiffre d\'affaires',
+        value: _formatMoney(statsVM.totalCA, compact: true),
+        footer: '${statsVM.periodeLabel} · ${_trendLabel(evoCa)}',
+        progress: (evoCa.abs() / 100).clamp(0.0, 1.0),
+        icon: Icons.payments_rounded,
+        gradient: const [Color(0xFF22C55E), Color(0xFF16A34A)],
+      ),
+      (
+        label: 'Ventes',
+        value: '${statsVM.totalVentes}',
+        footer: '${statsVM.periodeLabel} · ${_trendLabel(evoVentes)}',
+        progress: (evoVentes.abs() / 100).clamp(0.0, 1.0),
+        icon: Icons.receipt_long_rounded,
+        gradient: const [Color(0xFF3B82F6), Color(0xFF2563EB)],
+      ),
+      (
+        label: 'Clients uniques',
+        value: '${statsVM.totalClients}',
+        footer: 'Panier moy. ${_formatMoney(statsVM.panierMoyen, compact: true)}',
+        progress: statsVM.panierMoyen > 0 ? 0.7 : 0.2,
+        icon: Icons.people_rounded,
+        gradient: const [Color(0xFFEC4899), Color(0xFFDB2777)],
+      ),
+      (
+        label: 'Bénéfice net',
+        value: _formatMoney(statsVM.beneficeTotal, compact: true),
+        footer: 'Marge ${statsVM.margePercent.toStringAsFixed(0)}% · ${_trendLabel(statsVM.evolutionBenefice)}',
+        progress: (statsVM.margePercent / 100).clamp(0.0, 1.0),
+        icon: Icons.trending_up_rounded,
+        gradient: const [Color(0xFFF97316), Color(0xFFEA580C)],
+      ),
+    ];
+
+    return GisFourKpiRow(
+      horizontalPadding: pad,
+      topPadding: 4,
+      cards: [
+        for (final c in cards)
+          GisKpiCardItem(
+            label: c.label,
+            value: c.value,
+            footerLabel: c.footer,
+            footerProgress: c.progress,
+            icon: c.icon,
+            gradient: c.gradient,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildFilyMainContent(StatsViewModel statsVM) {
+    final isWide = ResponsiveUtils.isKpiRowWide(context);
+    final pad = ResponsiveUtils.pageHorizontalPadding(context);
+
+    final left = Column(
+      children: [
+        _buildFilyEvolutionPanel(statsVM),
+        const SizedBox(height: 12),
+        _buildFilyBarPanel(statsVM),
+      ],
+    );
+
+    final right = Column(
+      children: [
+        _buildFilySparklineRow(statsVM),
+        const SizedBox(height: 12),
+        _buildFilyDonutPanel(statsVM),
+        const SizedBox(height: 12),
+        _buildFilyRingPanel(statsVM),
+      ],
+    );
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(pad, 0, pad, 8),
+      child: isWide
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 3, child: left),
+                const SizedBox(width: 16),
+                Expanded(flex: 2, child: right),
+              ],
+            )
+          : Column(
+              children: [
+                left,
+                const SizedBox(height: 12),
+                right,
+              ],
+            ),
+    );
+  }
+
+  Widget _buildFilyEvolutionPanel(StatsViewModel statsVM) {
+    return GisEdukaPanel(
+      title: 'Évolution du chiffre d\'affaires',
+      subtitle: statsVM.periodeLabel,
+      trailing: OutlinedButton.icon(
+        onPressed: shopId == null ? null : () => _openCalendarModal(statsVM),
+        icon: Icon(Icons.calendar_month_rounded, size: 16, color: _p.accent),
+        label: Text('Calendrier', style: TextStyle(color: _p.text, fontWeight: FontWeight.w600, fontSize: 12)),
+        style: OutlinedButton.styleFrom(
+          backgroundColor: _p.surfaceHi,
+          side: BorderSide(color: _p.border),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          visualDensity: VisualDensity.compact,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final metrics = [
+                _FilyMetricTile(label: 'CA', value: _formatMoney(statsVM.totalCA, compact: true), color: _p.success),
+                _FilyMetricTile(label: 'Ventes', value: '${statsVM.totalVentes}', color: _p.info),
+                _FilyMetricTile(label: 'Bénéfice', value: _formatMoney(statsVM.beneficeTotal, compact: true), color: _p.warning),
+                _FilyMetricTile(label: 'Clients', value: '${statsVM.totalClients}', color: _p.accent),
+              ];
+              if (constraints.maxWidth < AppBreakpoints.phone) {
+                return GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 2.3,
+                  children: metrics,
+                );
+              }
+              return Row(
+                children: [
+                  for (var i = 0; i < metrics.length; i++)
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(right: i < metrics.length - 1 ? 8 : 0),
+                        child: metrics[i],
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          EvolutionAreaChartWidget(
+            theme: _chartTheme,
+            data: statsVM.evolutionChartData,
+            title: '',
+            subtitle: '',
+            trendLabel: _trendLabel(statsVM.evolutionCA),
+            height: ResponsiveUtils.isPhone(context) ? 200 : 240,
+            embedded: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilyBarPanel(StatsViewModel statsVM) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 0),
+      child: BarChartWidget(
+        theme: _chartTheme,
+        data: statsVM.chartData,
+        title: 'Rapport des ventes',
+        subtitle: 'CA par jour · ${statsVM.periodeLabel.toLowerCase()}',
+        height: 220,
+      ),
+    );
+  }
+
+  Widget _buildFilySparklineRow(StatsViewModel statsVM) {
+    final compact = !ResponsiveUtils.isTwoColumnWide(context);
+    final left = _FilySparkCard(
+      label: 'Marge nette',
+      value: '${statsVM.margePercent.toStringAsFixed(0)}%',
+      trend: _trendLabel(statsVM.evolutionBenefice),
+      trendUp: statsVM.evolutionBenefice >= 0,
+      color: _p.success,
+    );
+    final right = _FilySparkCard(
+      label: 'Ventes crédit',
+      value: '${statsVM.tauxCredits.toStringAsFixed(0)}%',
+      trend: '${statsVM.chartData.length} j. actifs',
+      trendUp: true,
+      color: _p.info,
+    );
+
+    if (compact) {
+      return Column(
+        children: [
+          left,
+          const SizedBox(height: 10),
+          right,
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(child: left),
+        const SizedBox(width: 10),
+        Expanded(child: right),
+      ],
+    );
+  }
+
+  Widget _buildFilyDonutPanel(StatsViewModel statsVM) {
+    final paymentSections = <Map<String, dynamic>>[];
+    if (statsVM.caComptant > 0) paymentSections.add({'label': 'Comptant', 'value': statsVM.caComptant});
+    if (statsVM.caCredit > 0) paymentSections.add({'label': 'Crédit', 'value': statsVM.caCredit});
+
+    return GisEdukaPanel(
+      title: 'Répartition des paiements',
+      subtitle: 'Comptant vs crédit',
+      child: DonutChartWidget(
+        theme: _chartTheme,
+        compact: true,
+        embedded: true,
+        title: '',
+        centerLabel: 'CA total',
+        centerValue: _formatMoney(statsVM.totalCA, compact: true),
+        sections: paymentSections,
+        colors: [_p.success, _p.warning],
+      ),
+    );
+  }
+
+  Widget _buildFilyRingPanel(StatsViewModel statsVM) {
+    return GisEdukaPanel(
+      title: 'Indicateurs clés',
+      subtitle: statsVM.periodeLabel,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          RingMetricWidget(
+            theme: _chartTheme,
+            percent: statsVM.margePercent,
+            label: 'Marge',
+            value: '${statsVM.margePercent.toStringAsFixed(0)}%',
+            explanation: 'Bénéfice / CA',
+            color: _p.success,
+            size: 72,
+          ),
+          RingMetricWidget(
+            theme: _chartTheme,
+            percent: statsVM.tauxCredits,
+            label: 'Crédit',
+            value: '${statsVM.tauxCredits.toStringAsFixed(0)}%',
+            explanation: 'Part crédit',
+            color: _p.warning,
+            size: 72,
+          ),
+          RingMetricWidget(
+            theme: _chartTheme,
+            percent: statsVM.tauxActivite,
+            label: 'Activité',
+            value: '${statsVM.chartData.length}j',
+            explanation: 'Jours actifs',
+            color: _p.accent,
+            size: 72,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilyProductsTable(StatsViewModel statsVM) {
+    final products = statsVM.topProductsList;
+    final productDonut = statsVM.topProductsDonut;
+
+    return GisEdukaPanel(
+      title: 'Classement produits',
+      subtitle: 'Top ventes par chiffre d\'affaires · ${statsVM.periodeLabel.toLowerCase()}',
+      child: products.isEmpty
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 28),
+                child: Column(
+                  children: [
+                    Icon(Icons.inventory_2_outlined, size: 40, color: _p.textDim),
+                    const SizedBox(height: 10),
+                    Text('Aucune vente sur cette période', style: TextStyle(color: _p.textMute, fontSize: 13)),
+                  ],
+                ),
+              ),
+            )
+          : Column(
+              children: [
+                if (productDonut.isNotEmpty) ...[
+                  DonutChartWidget(
+                    theme: _chartTheme,
+                    compact: true,
+                    embedded: true,
+                    title: '',
+                    centerLabel: 'Top 3',
+                    centerValue: '${products.length}',
+                    sections: productDonut,
+                    colors: [_p.accent, _p.info, _p.gold, _p.textDim],
+                  ),
+                  const SizedBox(height: 16),
+                  Divider(height: 1, color: _p.border),
+                  const SizedBox(height: 12),
+                ],
+                _buildTableHeader(),
+                const SizedBox(height: 8),
+                ...products.asMap().entries.map((e) => _buildProductRow(e.key, e.value)),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildTableHeader() {
+    return Row(
+      children: [
+        SizedBox(width: 36, child: Text('#', style: TextStyle(color: _p.textMute, fontSize: 11, fontWeight: FontWeight.w600))),
+        Expanded(flex: 3, child: Text('Produit', style: TextStyle(color: _p.textMute, fontSize: 11, fontWeight: FontWeight.w600))),
+        Expanded(child: Text('Qté', style: TextStyle(color: _p.textMute, fontSize: 11, fontWeight: FontWeight.w600), textAlign: TextAlign.center)),
+        Expanded(flex: 2, child: Text('CA', style: TextStyle(color: _p.textMute, fontSize: 11, fontWeight: FontWeight.w600), textAlign: TextAlign.end)),
+        const SizedBox(width: 72),
+      ],
+    );
+  }
+
+  Widget _buildProductRow(int index, Map<String, dynamic> p) {
+    final ca = (p['ca'] as num?)?.toDouble() ?? 0;
+    final qty = (p['quantite'] as num?)?.toStringAsFixed(0) ?? '0';
+    final rankColors = [_p.gold, _p.textMute, const Color(0xFFCD7F32)];
+    final rankColor = index < 3 ? rankColors[index] : _p.textDim;
+    final statusLabel = index == 0 ? 'Top 1' : index == 1 ? 'Top 2' : index == 2 ? 'Top 3' : 'Actif';
+    final statusColor = index == 0 ? _p.success : index < 3 ? _p.info : _p.textMute;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: rankColor.withValues(alpha: 0.15),
+            child: Text('${index + 1}', style: TextStyle(color: rankColor, fontSize: 11, fontWeight: FontWeight.w800)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            flex: 3,
+            child: Text(
+              p['nom']?.toString() ?? '—',
+              style: TextStyle(color: _p.text, fontSize: 13, fontWeight: FontWeight.w500),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            child: Text(qty, style: TextStyle(color: _p.textMute, fontSize: 12), textAlign: TextAlign.center),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              _formatMoney(ca, compact: true),
+              style: TextStyle(color: _p.text, fontSize: 12, fontWeight: FontWeight.w700),
+              textAlign: TextAlign.end,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              statusLabel,
+              style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilyAnalysis(StatsViewModel statsVM) {
+    final cards = statsVM.analysisCards;
+    if (cards.isEmpty) return const SizedBox.shrink();
+
+    return GisEdukaPanel(
+      title: 'Analyses & explications',
+      subtitle: 'Interprétation automatique de vos chiffres',
+      child: Column(
+        children: cards.map((c) => _AnalysisCard(
+              title: c['title'] ?? '',
+              body: c['body'] ?? '',
+              type: c['type'] ?? 'info',
+            )).toList(),
+      ),
     );
   }
 
@@ -143,76 +666,6 @@ class _StatsScreenState extends State<StatsScreen> {
       selectedId: statsVM.selectedPeriode,
       enabled: !statsVM.isLoading,
       onSelected: (id) => statsVM.changePeriode(id, shopId!),
-    );
-  }
-
-  Widget _buildMainKpiGrid(StatsViewModel statsVM) {
-    final evo = statsVM.evolutionCA;
-    final evoNorm = ((evo.abs() / 100).clamp(0.0, 1.0)).toDouble();
-
-    return GisStatCardGrid(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      cards: [
-        GisGradientStatCard(
-          label: 'Chiffre d\'affaires',
-          value: _formatMoney(statsVM.totalCA, compact: true),
-          subtitle: statsVM.periodeLabel,
-          icon: Icons.payments_rounded,
-          gradient: const [Color(0xFF7C5CFF), Color(0xFF5B3FE6)],
-          progress: evoNorm,
-        ),
-        GisGradientStatCard(
-          label: 'Ventes',
-          value: '${statsVM.totalVentes}',
-          subtitle: '${evo >= 0 ? '+' : ''}${evo.toStringAsFixed(1)}% vs période préc.',
-          icon: Icons.receipt_long_rounded,
-          gradient: const [Color(0xFF22C55E), Color(0xFF16A34A)],
-        ),
-        GisGradientStatCard(
-          label: 'Clients',
-          value: '${statsVM.totalClients}',
-          subtitle: 'Panier moy. ${_formatMoney(statsVM.panierMoyen, compact: true)}',
-          icon: Icons.people_rounded,
-          gradient: const [Color(0xFF3B82F6), Color(0xFF2563EB)],
-        ),
-        GisGradientStatCard(
-          label: 'Bénéfice net',
-          value: _formatMoney(statsVM.beneficeTotal, compact: true),
-          subtitle: 'Marge ${statsVM.margePercent.toStringAsFixed(0)}%',
-          icon: Icons.account_balance_wallet_rounded,
-          gradient: const [Color(0xFFF59E0B), Color(0xFFD97706)],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEvolutionSection(StatsViewModel statsVM) {
-    final evo = statsVM.evolutionCA;
-    final isUp = evo >= 0;
-    final trendLabel = '${isUp ? '+' : ''}${evo.toStringAsFixed(1)}% vs période préc.';
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      child: EvolutionAreaChartWidget(
-        theme: _chartTheme,
-        data: statsVM.evolutionChartData,
-        title: 'Évolution du chiffre d\'affaires',
-        subtitle: statsVM.periodeLabel,
-        trendLabel: trendLabel,
-        height: 280,
-        trailing: OutlinedButton.icon(
-          onPressed: shopId == null ? null : () => _openCalendarModal(statsVM),
-          icon: Icon(Icons.calendar_month_rounded, size: 18, color: _p.accent),
-          label: Text('Calendrier', style: TextStyle(color: _p.text, fontWeight: FontWeight.w600)),
-          style: OutlinedButton.styleFrom(
-            backgroundColor: _p.surfaceHi,
-            side: BorderSide(color: _p.accent.withValues(alpha: 0.45)),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            visualDensity: VisualDensity.compact,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        ),
-      ),
     );
   }
 
@@ -240,240 +693,6 @@ class _StatsScreenState extends State<StatsScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  /// 3 cercles : marge, crédit, activité
-  Widget _buildRingMetrics(StatsViewModel statsVM) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      child: GisChartPanel(
-        title: 'Indicateurs circulaires',
-        subtitle: 'Marge · crédits · activité sur ${statsVM.periodeLabel.toLowerCase()}',
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            RingMetricWidget(
-              theme: _chartTheme,
-              percent: statsVM.margePercent,
-              label: 'Marge nette',
-              value: _formatMoney(statsVM.beneficeTotal, compact: true),
-              explanation: 'Part bénéfice / CA',
-              color: _p.success,
-            ),
-            RingMetricWidget(
-              theme: _chartTheme,
-              percent: statsVM.tauxCredits,
-              label: 'Ventes crédit',
-              value: '${statsVM.tauxCredits.toStringAsFixed(0)}%',
-              explanation: 'Dossiers à crédit',
-              color: _p.warning,
-            ),
-            RingMetricWidget(
-              theme: _chartTheme,
-              percent: statsVM.tauxActivite,
-              label: 'Jours actifs',
-              value: '${statsVM.chartData.length} j',
-              explanation: 'Jours avec ventes',
-              color: _p.accent,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDonutSection(StatsViewModel statsVM) {
-    final paymentSections = <Map<String, dynamic>>[];
-    if (statsVM.caComptant > 0) {
-      paymentSections.add({'label': 'Comptant', 'value': statsVM.caComptant});
-    }
-    if (statsVM.caCredit > 0) {
-      paymentSections.add({'label': 'Crédit', 'value': statsVM.caCredit});
-    }
-
-    final paymentDonut = DonutChartWidget(
-      theme: _chartTheme,
-      compact: true,
-      embedded: true,
-      title: 'Paiements',
-      subtitle: 'Comptant / crédit',
-      centerLabel: 'CA',
-      centerValue: _formatMoney(statsVM.totalCA, compact: true),
-      sections: paymentSections,
-      colors: [_p.success, _p.warning],
-    );
-
-    final productsDonut = DonutChartWidget(
-      theme: _chartTheme,
-      compact: true,
-      embedded: true,
-      title: 'Produits',
-      subtitle: 'Top 3 + autres',
-      centerLabel: 'Refs',
-      centerValue: '${statsVM.topProductsList.length}',
-      sections: statsVM.topProductsDonut,
-      colors: [_p.accent, _p.info, _p.gold, _p.textDim],
-    );
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      child: GisChartPanel(
-        title: 'Répartitions',
-        subtitle: 'Paiements et produits · ${statsVM.periodeLabel.toLowerCase()} · Total ${_formatMoney(statsVM.totalCA, compact: true)}',
-        child: GisDashboardSplit(
-          left: paymentDonut,
-          right: productsDonut,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTopProducts(StatsViewModel statsVM) {
-    final products = statsVM.topProductsList;
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: _p.cardDecoration(context, radius: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-           Text('Classement produits', style: TextStyle(color: _p.text, fontSize: 15, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-           Text('Basé sur le CA réel généré', style: TextStyle(color: _p.textDim, fontSize: 11)),
-          const SizedBox(height: 16),
-          if (products.isEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Column(
-                  children: [
-                    Icon(Icons.inventory_2_outlined, size: 36, color: _p.textDim),
-                    const SizedBox(height: 8),
-                    Text('Aucune vente enregistrée', style: TextStyle(color: _p.textMute, fontSize: 12)),
-                  ],
-                ),
-              ),
-            )
-          else
-            ...products.asMap().entries.map((entry) {
-              final i = entry.key;
-              final p = entry.value;
-              final ca = (p['ca'] as num?)?.toDouble() ?? 0;
-              final maxCa = (products.first['ca'] as num?)?.toDouble() ?? 1;
-              final progress = maxCa > 0 ? ca / maxCa : 0.0;
-              final rankColors = [_p.gold, _p.textMute, Color(0xFFCD7F32)];
-
-              return Padding(
-                padding: EdgeInsets.only(bottom: i < products.length - 1 ? 12 : 0),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: (i < 3 ? rankColors[i] : _p.textDim).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: (i < 3 ? rankColors[i] : _p.textDim).withValues(alpha: 0.25)),
-                      ),
-                      child: Center(
-                        child: Text(
-                          '${i + 1}',
-                          style: TextStyle(
-                            color: i < 3 ? rankColors[i] : _p.textMute,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            p['nom']?.toString() ?? '—',
-                            style:  TextStyle(color: _p.text, fontSize: 13, fontWeight: FontWeight.w500),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 6),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              value: progress.clamp(0.0, 1.0),
-                              minHeight: 4,
-                              backgroundColor: _p.borderStrong,
-                              valueColor: AlwaysStoppedAnimation(_p.accent.withValues(alpha: 0.8)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          _formatMoney(ca, compact: true),
-                          style:  TextStyle(color: _p.accentSoft, fontSize: 12, fontWeight: FontWeight.w700),
-                        ),
-                        Text(
-                          '${((p['quantite'] as num?)?.toStringAsFixed(0) ?? '0')} vendus',
-                          style:  TextStyle(color: _p.textDim, fontSize: 10),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAnalysis(StatsViewModel statsVM) {
-    final cards = statsVM.analysisCards;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.auto_awesome_rounded, size: 16, color: _p.gold),
-            const SizedBox(width: 8),
-             Text(
-              'Analyses & explications',
-              style: TextStyle(color: _p.text, fontSize: 15, fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-         Text(
-          'Interprétation automatique de vos chiffres réels',
-          style: TextStyle(color: _p.textDim, fontSize: 11),
-        ),
-        const SizedBox(height: 12),
-        ...cards.map((c) => _AnalysisCard(
-              title: c['title'] ?? '',
-              body: c['body'] ?? '',
-              type: c['type'] ?? 'info',
-            )),
-      ],
-    );
-  }
-
-  Widget _chip(String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Text(text, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
     );
   }
 
@@ -524,6 +743,123 @@ class _StatsScreenState extends State<StatsScreen> {
           ),
         ),
       );
+}
+
+class _FilyMetricTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _FilyMetricTile({required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = GisPalette.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(color: p.textMute, fontSize: 11, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: GoogleFonts.plusJakartaSans(
+              color: p.text,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilySparkCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final String trend;
+  final bool trendUp;
+  final Color color;
+
+  const _FilySparkCard({
+    required this.label,
+    required this.value,
+    required this.trend,
+    required this.trendUp,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = GisPalette.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: p.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: p.border.withValues(alpha: isDark ? 0.55 : 0.35)),
+        boxShadow: isDark
+            ? [BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 12, offset: const Offset(0, 4))]
+            : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 3))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(color: p.textMute, fontSize: 12, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: GoogleFonts.plusJakartaSans(
+              color: p.text,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: (trendUp ? p.success : p.danger).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              trend,
+              style: TextStyle(
+                color: trendUp ? p.success : p.danger,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: 0.65,
+              minHeight: 4,
+              backgroundColor: color.withValues(alpha: 0.15),
+              valueColor: AlwaysStoppedAnimation(color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Modal calendrier — données réelles par jour au clic.

@@ -366,6 +366,25 @@ class StatsRepository {
     }
   }
 
+  /// Ventes détaillées pour export rapport (période sélectionnée).
+  Future<List<Map<String, dynamic>>> getVentesForReport(String shopId, String periode) async {
+    try {
+      final dateRange = _getDateRange(periode);
+      final response = await _supabase
+          .from('ventes')
+          .select('date_vente, client_nom, nom_produit, total, benefice_reel, est_credit, status')
+          .eq('shop_id', shopId)
+          .gte('date_vente', dateRange['start'] ?? '')
+          .lte('date_vente', dateRange['end'] ?? '')
+          .order('date_vente', ascending: false);
+
+      return List<Map<String, dynamic>>.from(response).where((v) => !_isAnnulee(v)).toList();
+    } catch (e) {
+      debugPrint('❌ Erreur getVentesForReport: $e');
+      return [];
+    }
+  }
+
   Map<String, String?> _getDateRangePrecedente(String periode) {
     final now = DateTime.now();
     late DateTime startDate;

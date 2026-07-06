@@ -47,3 +47,13 @@ app.*.map.json
 # Memoire / documents personnels (ne pas publier par defaut)
 V1.pdf
 Examen.pdf
+Rapport De Stage Madina Aidara.pdf
+Rapport De Stage Madina Aidara.odt
+
+# Fichiers temporaires / IDE
+.cursor/
+_odt_extract.txt
+_pdf_full_extract.txt
+_pdf_pages1-15.txt
+analyze_out.txt
+/ac1.png

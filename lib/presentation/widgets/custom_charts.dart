@@ -281,6 +281,7 @@ class EvolutionAreaChartWidget extends StatelessWidget {
   final double height;
   final Widget? trailing;
   final String? trendLabel;
+  final bool embedded;
 
   const EvolutionAreaChartWidget({
     super.key,
@@ -291,6 +292,7 @@ class EvolutionAreaChartWidget extends StatelessWidget {
     this.height = 260,
     this.trailing,
     this.trendLabel,
+    this.embedded = false,
   });
 
   static const _chartGreen = Color(0xFF00897B);
@@ -299,6 +301,14 @@ class EvolutionAreaChartWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final chart = data.isEmpty
+        ? _EmptyChart(theme: theme, icon: Icons.show_chart_rounded)
+        : SizedBox(height: height, child: LineChart(_buildData()));
+
+    if (embedded) {
+      return SizedBox(height: height, child: chart);
+    }
+
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
       decoration: BoxDecoration(
@@ -362,9 +372,7 @@ class EvolutionAreaChartWidget extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
-          data.isEmpty
-              ? _EmptyChart(theme: theme, icon: Icons.show_chart_rounded)
-              : SizedBox(height: height, child: LineChart(_buildData())),
+          chart,
         ],
       ),
     );
@@ -704,7 +712,7 @@ class DonutChartWidget extends StatelessWidget {
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (embedded) ...[
+              if (embedded && title.isNotEmpty) ...[
                 Text(
                   title,
                   style: TextStyle(
@@ -724,7 +732,7 @@ class DonutChartWidget extends StatelessWidget {
         : Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (embedded) ...[
+              if (embedded && title.isNotEmpty) ...[
                 Text(
                   title,
                   style: TextStyle(

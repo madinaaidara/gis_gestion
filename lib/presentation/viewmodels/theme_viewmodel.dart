@@ -1,26 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/theme/app_surface.dart';
+import '../../core/theme/gis_palette.dart';
+
 class ThemeViewModel extends ChangeNotifier {
   static const _prefKey = 'gis_theme_mode';
 
-  ThemeMode _mode = ThemeMode.dark;
+  ThemeMode _mode = ThemeMode.light;
 
   ThemeMode get mode => _mode;
   bool get isDark => _mode == ThemeMode.dark;
 
   ThemeViewModel() {
+    _syncSurface();
     _load();
+  }
+
+  void _syncSurface() {
+    AppSurface.sync(isDark ? GisPalette.dark : GisPalette.light);
   }
 
   Future<void> _load() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getString(_prefKey);
-      if (saved == 'light') {
+      if (saved == 'dark') {
+        _mode = ThemeMode.dark;
+      } else if (saved == 'light') {
         _mode = ThemeMode.light;
-        notifyListeners();
       }
+      _syncSurface();
+      notifyListeners();
     } catch (_) {}
   }
 
@@ -28,6 +39,7 @@ class ThemeViewModel extends ChangeNotifier {
     final next = dark ? ThemeMode.dark : ThemeMode.light;
     if (_mode == next) return;
     _mode = next;
+    _syncSurface();
     notifyListeners();
     try {
       final prefs = await SharedPreferences.getInstance();

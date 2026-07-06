@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/utils/responsive_utils.dart';
 import '../../core/theme/gis_palette.dart';
 import '../../core/theme/gis_theme_ext.dart';
 
@@ -26,10 +27,11 @@ class GisPageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = GisPalette.of(context);
-    final isMobile = MediaQuery.sizeOf(context).width < 800;
+    final pad = ResponsiveUtils.pageHorizontalPadding(context);
+    final isCompact = !ResponsiveUtils.isTwoColumnWide(context);
 
     return Container(
-      padding: EdgeInsets.fromLTRB(isMobile ? 16 : 24, 16, isMobile ? 16 : 24, metrics != null ? 12 : 16),
+      padding: EdgeInsets.fromLTRB(pad, 16, pad, metrics != null ? 12 : 16),
       decoration: BoxDecoration(
         color: p.surface,
         border: Border(bottom: BorderSide(color: p.border)),
@@ -89,7 +91,7 @@ class GisPageHeader extends StatelessWidget {
           ),
           if (metrics != null && metrics!.isNotEmpty) ...[
             const SizedBox(height: 16),
-            _MetricsRow(metrics: metrics!, isMobile: isMobile),
+            _MetricsRow(metrics: metrics!, isCompact: isCompact),
           ],
         ],
       ),
@@ -99,13 +101,13 @@ class GisPageHeader extends StatelessWidget {
 
 class _MetricsRow extends StatelessWidget {
   final List<GisMetricTile> metrics;
-  final bool isMobile;
+  final bool isCompact;
 
-  const _MetricsRow({required this.metrics, required this.isMobile});
+  const _MetricsRow({required this.metrics, required this.isCompact});
 
   @override
   Widget build(BuildContext context) {
-    if (isMobile && metrics.length > 2) {
+    if (isCompact && metrics.length > 2) {
       final half = (metrics.length / 2).ceil();
       return Column(
         children: [
@@ -478,6 +480,277 @@ class GisStatusBadge extends StatelessWidget {
           Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700)),
         ],
       ),
+    );
+  }
+}
+
+/// Onglets segmentés — style Spotify (TabController).
+class GisSegmentedTabBar extends StatelessWidget {
+  final TabController controller;
+  final List<String> labels;
+  final EdgeInsetsGeometry? margin;
+
+  const GisSegmentedTabBar({
+    super.key,
+    required this.controller,
+    required this.labels,
+    this.margin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = GisPalette.of(context);
+    return Container(
+      margin: margin ?? const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: p.isDark(context) ? p.surfaceHi : p.surfaceMuted,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: p.border),
+      ),
+      child: TabBar(
+        controller: controller,
+        indicator: BoxDecoration(
+          color: p.isDark(context) ? p.accent.withValues(alpha: 0.28) : p.surface,
+          borderRadius: BorderRadius.circular(9),
+          boxShadow: p.isDark(context)
+              ? null
+              : [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2))],
+          border: Border.all(color: p.accent.withValues(alpha: 0.35)),
+        ),
+        indicatorSize: TabBarIndicatorSize.tab,
+        dividerColor: Colors.transparent,
+        labelColor: p.isDark(context) ? p.accentSoft : p.accent,
+        unselectedLabelColor: p.textMute,
+        labelStyle: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700),
+        unselectedLabelStyle: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w500),
+        tabs: labels.map((l) => Tab(height: 36, text: l)).toList(),
+      ),
+    );
+  }
+}
+
+/// Bandeau gradient — KPI principal (dette, CA…).
+class GisHeroBanner extends StatelessWidget {
+  final String title;
+  final String value;
+  final String? subtitle;
+  final IconData icon;
+  final List<Color> gradient;
+
+  const GisHeroBanner({
+    super.key,
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.gradient,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: gradient),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: gradient.first.withValues(alpha: 0.35),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title.toUpperCase(),
+                  style: GoogleFonts.plusJakartaSans(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  value,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.8,
+                    height: 1.1,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    subtitle!,
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.78), fontSize: 12, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: Colors.white, size: 26),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Ligne dense interactive — style playlist Spotify.
+class GisDenseListRow extends StatefulWidget {
+  final Widget leading;
+  final String title;
+  final String? subtitle;
+  final String? meta;
+  final Widget? trailing;
+  final Widget? footer;
+  final VoidCallback? onTap;
+  final bool muted;
+
+  const GisDenseListRow({
+    super.key,
+    required this.leading,
+    required this.title,
+    this.subtitle,
+    this.meta,
+    this.trailing,
+    this.footer,
+    this.onTap,
+    this.muted = false,
+  });
+
+  @override
+  State<GisDenseListRow> createState() => _GisDenseListRowState();
+}
+
+class _GisDenseListRowState extends State<GisDenseListRow> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = GisPalette.of(context);
+    final bg = _hovered
+        ? (p.isDark(context) ? p.surfaceHi : p.surfaceMuted)
+        : p.surface;
+
+    return Opacity(
+      opacity: widget.muted ? 0.5 : 1,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Material(
+          color: Colors.transparent,
+          child: MouseRegion(
+            onEnter: (_) => setState(() => _hovered = true),
+            onExit: (_) => setState(() => _hovered = false),
+            child: InkWell(
+              onTap: widget.onTap,
+              borderRadius: BorderRadius.circular(12),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _hovered ? p.accent.withValues(alpha: 0.25) : p.border),
+                  boxShadow: _hovered && !p.isDark(context)
+                      ? [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 3))]
+                      : null,
+                ),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      child: Row(
+                        children: [
+                          widget.leading,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.title,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: p.text,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.2,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (widget.subtitle != null) ...[
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    widget.subtitle!,
+                                    style: TextStyle(color: p.textMute, fontSize: 12, fontWeight: FontWeight.w500),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                                if (widget.meta != null) ...[
+                                  const SizedBox(height: 2),
+                                  Text(widget.meta!, style: TextStyle(color: p.textDim, fontSize: 10)),
+                                ],
+                              ],
+                            ),
+                          ),
+                          if (widget.trailing != null) widget.trailing!,
+                        ],
+                      ),
+                    ),
+                    if (widget.footer != null) widget.footer!,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Avatar carré coloré pour listes.
+class GisListAvatar extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final double size;
+
+  const GisListAvatar({super.key, required this.icon, required this.color, this.size = 48});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [color.withValues(alpha: 0.25), color.withValues(alpha: 0.08)],
+        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Icon(icon, color: color, size: size * 0.48),
     );
   }
 }

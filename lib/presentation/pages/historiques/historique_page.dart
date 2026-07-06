@@ -1,18 +1,21 @@
 // lib/presentation/pages/historiques/historique_page.dart
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_surface.dart';
 import '../../../core/theme/gis_palette.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../data/repositories/shops_repository.dart';
 import '../../../data/repositories/ventes_repository.dart';
 import '../../../data/repositories/products_repository.dart';
+import '../../../core/services/app_refresh_listener.dart';
+import '../../../core/services/app_refresh_notifier.dart';
+import '../../../core/utils/responsive_utils.dart';
 import '../../viewmodels/products_viewmodel.dart';
 import '../../viewmodels/credits_viewmodel.dart';
 import '../../widgets/gis_ui_kit.dart';
+import '../../widgets/gis_dashboard_widgets.dart';
 
 class HistoriquePage extends StatefulWidget {
   const HistoriquePage({super.key});
@@ -21,10 +24,14 @@ class HistoriquePage extends StatefulWidget {
   State<HistoriquePage> createState() => _HistoriquePageState();
 }
 
-class _HistoriquePageState extends State<HistoriquePage> with SingleTickerProviderStateMixin {
+class _HistoriquePageState extends State<HistoriquePage> with SingleTickerProviderStateMixin, AppRefreshListener {
   GisPalette get _p => GisPalette.of(context);
 
-  // ===== PALETTE DARK PREMIUM =====
+  @override
+  AppRefreshScope get refreshScope => AppRefreshScope.history;
+
+  @override
+  void onAppRefresh() => _loadData();
 
   final searchController = TextEditingController();
   String _searchQuery = '';
@@ -210,6 +217,7 @@ class _HistoriquePageState extends State<HistoriquePage> with SingleTickerProvid
       _showSnackBar(result.message ?? 'Dossier annulé', true);
       await _loadData();
       await Provider.of<ProductsViewModel>(context, listen: false).refreshProducts();
+      refreshAppData(context);
     } else {
       _showSnackBar(result.message ?? 'Annulation impossible', false);
     }
@@ -259,6 +267,7 @@ class _HistoriquePageState extends State<HistoriquePage> with SingleTickerProvid
       if (shopId != null) {
         await Provider.of<ProductsViewModel>(context, listen: false).reloadForShop(shopId!);
       }
+      refreshAppData(context);
     } else {
       _showSnackBar(result.message ?? 'Annulation impossible', false);
     }
@@ -405,6 +414,77 @@ class _HistoriquePageState extends State<HistoriquePage> with SingleTickerProvid
 
   String _formatNumber(double value) {
     return NumberFormat.decimalPattern('fr_FR').format(value);
+  }
+
+  String _formatMoney(double value, {bool compact = false}) {
+    final d = devise ?? 'FCFA';
+    if (compact) {
+      if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M $d';
+      if (value >= 1000) return '${(value / 1000).toStringAsFixed(0)}K $d';
+    }
+    return '${NumberFormat('#,##0', 'fr_FR').format(value.round())} $d';
+  }
+
+  String get _periodLabel {
+    switch (_selectedPeriod) {
+      case 'today':
+        return 'Aujourd\'hui';
+      case 'week':
+        return 'Cette semaine';
+      case 'month':
+        return 'Ce mois';
+      default:
+        return 'Toute la période';
+    }
+  }
+
+  Widget _buildSummaryRow() {
+    final pad = ResponsiveUtils.pageHorizontalPadding(context);
+    final totalOps = _nbVentes + _nbCredits;
+    final ventesPct = totalOps > 0 ? _nbVentes / totalOps : 0.0;
+    final creditsPct = totalOps > 0 ? _nbCredits / totalOps : 0.0;
+    final margePct = _totalVentes > 0 ? (_totalBenefice / _totalVentes).clamp(0.0, 1.0) : 0.0;
+
+    return GisFourKpiRow(
+      horizontalPadding: pad,
+      topPadding: 8,
+      cards: [
+        GisKpiCardItem(
+          label: 'Chiffre d\'affaires',
+          value: _formatMoney(_totalVentes, compact: true),
+          footerLabel: '$_nbVentes vente${_nbVentes > 1 ? 's' : ''} · $_periodLabel',
+          footerProgress: 1.0,
+          icon: Icons.payments_rounded,
+          gradient: const [Color(0xFF7C5CFF), Color(0xFF5B3FE6)],
+        ),
+        GisKpiCardItem(
+          label: 'Ventes',
+          value: '$_nbVentes',
+          footerLabel: _nbVentes > 0 ? 'Transactions enregistrées' : 'Aucune vente',
+          footerProgress: ventesPct,
+          icon: Icons.shopping_bag_rounded,
+          gradient: const [Color(0xFF22C55E), Color(0xFF16A34A)],
+        ),
+        GisKpiCardItem(
+          label: 'Crédits',
+          value: '$_nbCredits',
+          footerLabel: _nbCredits > 0 ? 'Dossiers crédit ouverts' : 'Aucun crédit',
+          footerProgress: creditsPct,
+          icon: Icons.credit_card_rounded,
+          gradient: const [Color(0xFFF59E0B), Color(0xFFD97706)],
+        ),
+        GisKpiCardItem(
+          label: 'Bénéfice',
+          value: _formatMoney(_totalBenefice, compact: true),
+          footerLabel: _totalVentes > 0
+              ? 'Marge ${(margePct * 100).toStringAsFixed(0)}% · $_periodLabel'
+              : '$_periodLabel',
+          footerProgress: margePct,
+          icon: Icons.trending_up_rounded,
+          gradient: const [Color(0xFF3B82F6), Color(0xFF2563EB)],
+        ),
+      ],
+    );
   }
 
   String _formatDate(String? date) {
@@ -600,30 +680,38 @@ class _HistoriquePageState extends State<HistoriquePage> with SingleTickerProvid
   @override
   Widget build(BuildContext context) {
     final filteredItems = _filteredItems;
-    final isMobile = MediaQuery.of(context).size.width < 800;
+    final pad = ResponsiveUtils.pageHorizontalPadding(context);
+    final bottomInset = ResponsiveUtils.scrollBottomInset(context);
 
     return Scaffold(
       backgroundColor: _p.bg,
       body: SafeArea(
         child: _isLoading
-            ?  Center(child: CircularProgressIndicator(color: _p.accent))
-            : Column(
-                children: [
-                  _buildHeader(),
-                  _buildStatsRow(isMobile),
-                  _buildSearchBar(),
-                  _buildPeriodSelector(),
-                  _buildTabBar(),
-                  Expanded(
-                    child: filteredItems.isEmpty
-                        ? _buildEmptyState()
-                        : ListView.builder(
-                            padding: EdgeInsets.fromLTRB(12, 8, 12, isMobile ? 24 : 12),
-                            itemCount: filteredItems.length,
-                            itemBuilder: (_, index) => _buildHistoryCard(filteredItems[index]),
-                          ),
-                  ),
-                ],
+            ? Center(child: CircularProgressIndicator(color: _p.accent, strokeWidth: 2.5))
+            : RefreshIndicator(
+                color: _p.accent,
+                backgroundColor: _p.surface,
+                onRefresh: _loadData,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                  slivers: [
+                    SliverToBoxAdapter(child: _buildHeader()),
+                    SliverToBoxAdapter(child: _buildSearchBar()),
+                    SliverToBoxAdapter(child: _buildPeriodSelector()),
+                    SliverToBoxAdapter(child: _buildTabBar()),
+                    SliverToBoxAdapter(child: _buildSummaryRow()),
+                    if (filteredItems.isEmpty)
+                      SliverFillRemaining(child: _buildEmptyState())
+                    else
+                      SliverPadding(
+                        padding: EdgeInsets.fromLTRB(pad, 4, pad, bottomInset),
+                        sliver: SliverList.builder(
+                          itemCount: filteredItems.length,
+                          itemBuilder: (_, index) => _buildHistoryCard(filteredItems[index]),
+                        ),
+                      ),
+                  ],
+                ),
               ),
       ),
     );
@@ -632,41 +720,9 @@ class _HistoriquePageState extends State<HistoriquePage> with SingleTickerProvid
   Widget _buildHeader() {
     return GisPageHeader(
       icon: Icons.history_rounded,
-      title: 'Historique',
-      subtitle: 'Journal des transactions',
+      title: '',
+      subtitle: 'Journal des ventes et crédits',
       onRefresh: _loadData,
-    );
-  }
-
-  Widget _buildStatsRow(bool isMobile) {
-    final metrics = [
-      GisMetricTile(label: 'Ventes', value: _nbVentes.toString(), color: _p.success, icon: Icons.trending_up),
-      GisMetricTile(label: 'Crédits', value: _nbCredits.toString(), color: _p.warning, icon: Icons.credit_card),
-      GisMetricTile(label: 'CA', value: '${_formatNumber(_totalVentes)} $devise', color: _p.accent, icon: Icons.receipt_long),
-      GisMetricTile(label: 'Bénéfice', value: '${_formatNumber(_totalBenefice)} $devise', color: _p.gold, icon: Icons.account_balance_wallet),
-    ];
-
-    if (isMobile) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-        child: Column(
-          children: [
-            Row(children: [Expanded(child: metrics[0]), const SizedBox(width: 8), Expanded(child: metrics[1])]),
-            const SizedBox(height: 8),
-            Row(children: [Expanded(child: metrics[2]), const SizedBox(width: 8), Expanded(child: metrics[3])]),
-          ],
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
-      child: Row(
-        children: [
-          for (var i = 0; i < metrics.length; i++)
-            Expanded(child: Padding(padding: EdgeInsets.only(right: i < metrics.length - 1 ? 8 : 0), child: metrics[i])),
-        ],
-      ),
     );
   }
 
@@ -674,111 +730,37 @@ class _HistoriquePageState extends State<HistoriquePage> with SingleTickerProvid
     return GisSearchField(
       controller: searchController,
       hint: 'Client, téléphone ou produit…',
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       height: 42,
       onChanged: (v) => setState(() => _searchQuery = v.trim()),
     );
   }
 
-  Widget _buildStatCard(String label, String value, Color color, IconData icon) {
-    return GisMetricTile(label: label, value: value, color: color, icon: icon);
-  }
-
-  Widget _buildIconButton(IconData icon, VoidCallback onTap) {
-    return GisIconButton(icon: icon, onTap: onTap);
-  }
-
   Widget _buildPeriodSelector() {
-    final periods = [
-      {'key': 'all', 'label': 'Tout'},
-      {'key': 'today', 'label': 'Aujourd\'hui'},
-      {'key': 'week', 'label': 'Semaine'},
-      {'key': 'month', 'label': 'Mois'},
-    ];
+    const keys = ['all', 'today', 'week', 'month'];
+    const labels = ['Tout', 'Aujourd\'hui', 'Semaine', 'Mois'];
+    final selectedIndex = keys.indexOf(_selectedPeriod).clamp(0, keys.length - 1);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: periods.map((period) {
-            final isSelected = _selectedPeriod == period['key'];
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: InkWell(
-                onTap: () => setState(() => _selectedPeriod = period['key'] as String),
-                borderRadius: BorderRadius.circular(18),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: isSelected ? _p.accent.withOpacity(0.15) : _p.surfaceHi,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: isSelected ? _p.accent.withOpacity(0.45) : _p.border),
-                  ),
-                  child: Text(
-                    period['label'] as String,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                      color: isSelected ? _p.accent : _p.textMute,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ),
+    return GisFilterChips(
+      labels: labels,
+      selectedIndex: selectedIndex,
+      onSelected: (i) => setState(() => _selectedPeriod = keys[i]),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
     );
   }
 
   Widget _buildTabBar() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: _p.surfaceHi,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _p.border),
-      ),
-      child: TabBar(
-        controller: _tabController,
-        indicator: BoxDecoration(
-          color: _p.accent.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: _p.accent.withOpacity(0.35)),
-        ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
-        labelColor: _p.accent,
-        unselectedLabelColor: _p.textMute,
-        labelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        unselectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-        tabs: const [
-          Tab(height: 34, text: 'Tous'),
-          Tab(height: 34, text: 'Ventes'),
-          Tab(height: 34, text: 'Crédits'),
-        ],
-      ),
+    return GisSegmentedTabBar(
+      controller: _tabController,
+      labels: const ['Tous', 'Ventes', 'Crédits'],
     );
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 64, height: 64,
-            decoration: BoxDecoration(color: _p.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: _p.border)),
-            child: Icon(Icons.history_rounded, size: 28, color: _p.textDim),
-          ),
-          const SizedBox(height: 16),
-           Text("Aucune transaction", style: TextStyle(color: _p.textMute, fontSize: 14, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-           Text("Les ventes et crédits apparaîtront ici", style: TextStyle(color: _p.textDim, fontSize: 12)),
-        ],
-      ),
+    return const GisEmptyState(
+      icon: Icons.history_rounded,
+      title: 'Aucune transaction',
+      subtitle: 'Les ventes et crédits apparaîtront ici',
     );
   }
 
@@ -798,71 +780,39 @@ class _HistoriquePageState extends State<HistoriquePage> with SingleTickerProvid
     final statutColor = isVente
         ? _venteStatutColor(item)
         : (item['statut'] == 'paye' ? _p.success : _p.warning);
-    final sousTitre = isVente
-        ? (item['nom_produit']?.toString() ?? date)
-        : date;
+    final iconColor = isVente ? (isCreditVente ? _p.warning : _p.success) : _p.warning;
+    final produit = isVente ? (item['nom_produit']?.toString() ?? '—') : 'Dossier crédit';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: _p.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isAnnulee ? _p.border : _p.border),
+    return GisDenseListRow(
+      muted: isAnnulee || isCreditAnnule,
+      onTap: () => _afficherDetails(item),
+      leading: GisListAvatar(
+        icon: isVente ? Icons.receipt_long_rounded : Icons.credit_card_rounded,
+        color: iconColor,
       ),
-      child: Opacity(
-        opacity: (isAnnulee || isCreditAnnule) ? 0.55 : 1,
-        child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        leading: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: isVente
-                ? (isCreditVente ? _p.warning.withOpacity(0.1) : _p.success.withOpacity(0.1))
-                : _p.warning.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(
-            isVente ? Icons.receipt_long_rounded : Icons.credit_card_rounded,
-            color: isVente ? (isCreditVente ? _p.warning : _p.success) : _p.warning,
-            size: 22,
-          ),
-        ),
-        title: Text(
-          client,
-          style:  TextStyle(color: _p.text, fontSize: 14, fontWeight: FontWeight.w600),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              sousTitre,
-              style: TextStyle(color: _p.textMute, fontSize: 11),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+      title: client,
+      subtitle: produit,
+      meta: date,
+      trailing: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            '${_formatNumber(montant)} ${devise ?? ''}',
+            style: GoogleFonts.plusJakartaSans(
+              color: statutColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
             ),
-            if (isVente) ...[
-              const SizedBox(height: 2),
-              Text(date, style: TextStyle(color: _p.textDim, fontSize: 10)),
-            ],
-          ],
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              '${_formatNumber(montant)} $devise',
-              style: TextStyle(color: statutColor, fontSize: 13, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 2),
-            Text(statutLabel, style: TextStyle(color: _p.textDim, fontSize: 9)),
-          ],
-        ),
-        onTap: () => _afficherDetails(item),
-        ),
+          ),
+          const SizedBox(height: 4),
+          GisStatusBadge(
+            label: statutLabel,
+            color: statutColor,
+            icon: isVente ? Icons.point_of_sale_rounded : Icons.credit_card_rounded,
+          ),
+        ],
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/utils/packaging_utils.dart';
 import '../models/produit_model.dart';
@@ -61,6 +62,7 @@ class AccueilRepository {
       final objectifJourPct = caMoyenJourMois > 0
           ? (sumCa(ventesJour) / caMoyenJourMois * 100).clamp(0, 150)
           : 0.0;
+      final caParJour = _buildCaParJour(ventesSemaine);
 
       return {
         'ca_jour': sumCa(ventesJour),
@@ -89,6 +91,7 @@ class AccueilRepository {
         'stock_ok': stockOk,
         'objectif_jour_percent': objectifJourPct,
         'ca_moyen_jour_mois': caMoyenJourMois,
+        'ca_par_jour': caParJour,
       };
     } catch (e) {
       debugPrint('❌ Erreur getDashboardSummary: $e');
@@ -121,7 +124,40 @@ class AccueilRepository {
         'stock_ok': 0,
         'objectif_jour_percent': 0.0,
         'ca_moyen_jour_mois': 0.0,
+        'ca_par_jour': <Map<String, dynamic>>[],
       };
+
+  List<Map<String, dynamic>> _buildCaParJour(List<Map<String, dynamic>> ventes) {
+    final now = DateTime.now();
+    final fmt = DateFormat('EEE', 'fr_FR');
+    final days = <Map<String, dynamic>>[];
+
+    for (var i = 6; i >= 0; i--) {
+      final dayStart = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
+      final dayEnd = dayStart.add(const Duration(hours: 23, minutes: 59, seconds: 59));
+      var sum = 0.0;
+      var count = 0;
+
+      for (final v in ventes) {
+        final parsed = DateTime.tryParse(v['date_vente']?.toString() ?? '');
+        if (parsed == null) continue;
+        final local = parsed.toLocal();
+        if (!local.isBefore(dayStart) && !local.isAfter(dayEnd)) {
+          sum += (v['total'] as num?)?.toDouble() ?? 0;
+          count++;
+        }
+      }
+
+      var label = fmt.format(dayStart);
+      if (label.isNotEmpty) {
+        label = '${label[0].toUpperCase()}${label.substring(1)}';
+      }
+
+      days.add({'label': label, 'value': sum, 'ventes': count});
+    }
+
+    return days;
+  }
 
   Future<List<Map<String, dynamic>>> _fetchVentesRange(
     String shopId,

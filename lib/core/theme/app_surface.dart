@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 
 import 'gis_palette.dart';
 
-/// Accès aux couleurs de surface — suit la palette active (sombre par défaut).
+/// Accès aux couleurs de surface — suit la palette active (clair par défaut).
 class AppSurface {
   AppSurface._();
 
-  static GisPalette _active = GisPalette.dark;
+  static GisPalette _active = GisPalette.light;
 
   static void sync(GisPalette palette) => _active = palette;
 

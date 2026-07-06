@@ -6,9 +6,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/utils/packaging_utils.dart';
+import '../../../core/utils/responsive_utils.dart';
 import '../../../data/models/category_model.dart';
 import '../../../data/models/produit_model.dart';
 import '../../../data/repositories/products_repository.dart';
+import '../../../core/services/app_refresh_listener.dart';
 import '../../viewmodels/products_viewmodel.dart';
 import 'produit_guidance_widgets.dart';
 
@@ -34,7 +36,7 @@ class ProduitFormPanel extends StatefulWidget {
     required List<CategoryModel> categories,
     ProduitModel? editProduct,
   }) {
-    final wide = MediaQuery.sizeOf(context).width >= 900;
+    final wide = ResponsiveUtils.isTwoColumnWide(context);
 
     if (wide) {
       return showGeneralDialog<bool>(
@@ -324,7 +326,10 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
       if (!mounted) return;
       if (ok) {
         await vm.refreshProducts();
-        if (mounted) Navigator.of(context).pop(true);
+        if (mounted) {
+          refreshAppData(context);
+          Navigator.of(context).pop(true);
+        }
       } else {
         _toast(repo.errorMessage.isNotEmpty ? repo.errorMessage : 'Erreur enregistrement');
       }

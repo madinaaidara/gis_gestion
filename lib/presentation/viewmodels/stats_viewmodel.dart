@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/services/gis_report_service.dart';
 import '../../data/repositories/stats_repository.dart';
 
 class StatsViewModel extends ChangeNotifier {
@@ -347,6 +348,35 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   Future<void> refreshData(String shopId) => loadStatsData(shopId);
+
+  /// Construit les données du rapport à partir des stats chargées + ventes détaillées.
+  Future<GisReportData> buildReportData({
+    required String shopId,
+    required String shopName,
+    required String devise,
+  }) async {
+    final ventesDetail = await _statsRepository.getVentesForReport(shopId, _selectedPeriode);
+    return GisReportData(
+      shopName: shopName,
+      devise: devise,
+      periodeLabel: periodeLabel,
+      totalCA: totalCA,
+      evolutionCA: evolutionCA,
+      totalVentes: totalVentes,
+      evolutionVentes: evolutionVentes,
+      beneficeTotal: beneficeTotal,
+      evolutionBenefice: evolutionBenefice,
+      margePercent: margePercent,
+      totalClients: totalClients,
+      panierMoyen: panierMoyen,
+      caComptant: caComptant,
+      caCredit: caCredit,
+      tauxCredits: tauxCredits,
+      chartData: chartData,
+      topProducts: topProductsList,
+      ventesDetail: ventesDetail,
+    );
+  }
 
   void clearData() {
     _dashboardData = {};

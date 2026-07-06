@@ -294,6 +294,39 @@ class VentesViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool mettreAJourLignePanier(
+    int index,
+    int quantite,
+    double prixVente,
+    String unite,
+    double facteurConversion,
+  ) {
+    if (index < 0 || index >= _panier.length || quantite <= 0 || prixVente <= 0) return false;
+
+    final item = _panier[index];
+    final produitId = item['produit_id']?.toString() ?? '';
+    final stockSnapshot = (item['stock'] ?? 0.0).toDouble();
+    final autresReserves = _panier.asMap().entries.where((e) {
+      if (e.key == index) return false;
+      return e.value['produit_id']?.toString() == produitId;
+    }).fold(0.0, (sum, e) {
+      final q = (e.value['quantite'] ?? 1).toDouble();
+      final f = (e.value['facteur_conversion'] ?? 1.0).toDouble();
+      return sum + q * f;
+    });
+
+    final volumeDemande = quantite * facteurConversion;
+    if (volumeDemande > stockSnapshot - autresReserves + 0.0001) return false;
+
+    _panier[index]['quantite'] = quantite;
+    _panier[index]['prix_unitaire'] = prixVente;
+    _panier[index]['unite_vente'] = unite;
+    _panier[index]['facteur_conversion'] = facteurConversion;
+    _panier[index]['prix_total'] = prixVente * quantite;
+    notifyListeners();
+    return true;
+  }
+
   int _indexLignePanier(String produitId, String unite, double prixUnitaire) {
     return _panier.indexWhere((item) {
       if (item['produit_id'] != produitId) return false;
