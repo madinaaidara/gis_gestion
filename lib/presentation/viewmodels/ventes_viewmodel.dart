@@ -6,6 +6,7 @@ import '../../data/models/credit_model.dart';
 import '../../data/repositories/products_repository.dart';
 import '../../data/repositories/credits_repository.dart';
 import '../../core/utils/lignes_panier_utils.dart';
+import '../../core/utils/packaging_utils.dart';
 
 /// ============================================
 /// VENTES VIEWMODEL - GIS Gestion
@@ -107,7 +108,7 @@ class VentesViewModel extends ChangeNotifier {
         'stock': produit.stock,
         'unite_vente': produit.uniteVente,
         'facteur_conversion': 1.0,
-        'prix_achat_unitaire': produit.prixAchatTotal / (produit.quantiteParUnite > 0 ? produit.quantiteParUnite : 1.0),
+        'prix_achat_unitaire': PackagingUtils.coutUnitaireBase(produit),
       });
     }
     notifyListeners();
@@ -184,7 +185,10 @@ class VentesViewModel extends ChangeNotifier {
         'seller_id': sellerId,
         'nom_produit': resume.join(', '),
         'quantite': totalQuantiteGlobale,
-        'prix_achat_unitaire': _panier.fold(0.0, (sum, item) => sum + ((item['prix_achat_unitaire'] ?? 0.0) * (item['quantite'] ?? 1))),
+        'prix_achat_unitaire': _panier.fold(0.0, (sum, item) {
+          final factor = (item['facteur_conversion'] ?? 1.0).toDouble();
+          return sum + ((item['prix_achat_unitaire'] ?? 0.0) * (item['quantite'] ?? 1) * factor);
+        }),
         'prix_vente_prevu': _panier.fold(0.0, (sum, item) => sum + ((item['prix_initial'] ?? 0.0) * (item['quantite'] ?? 1))),
         'prix_vendu_unitaire': totalTTC / (totalQuantiteGlobale > 0 ? totalQuantiteGlobale : 1.0),
         'total': totalTTC,
@@ -361,7 +365,7 @@ class VentesViewModel extends ChangeNotifier {
         'stock': produit.stock,
         'unite_vente': unite,
         'facteur_conversion': facteurConversion,
-        'prix_achat_unitaire': produit.prixAchatTotal / (produit.quantiteParUnite > 0 ? produit.quantiteParUnite : 1.0),
+        'prix_achat_unitaire': PackagingUtils.coutUnitaireBase(produit),
       });
     }
     notifyListeners();

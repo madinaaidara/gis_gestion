@@ -797,7 +797,7 @@ class _VentePageState extends State<VentePage> with AppRefreshListener {
         : PackagingUtils.priceForUnit(product, initialOption.unite);
 
     final priceController = TextEditingController(
-      text: initialPrice.toStringAsFixed(0),
+      text: PackagingUtils.formatSalePrice(initialPrice),
     );
 
     final lineQty = isEdit ? ((cartItem!['quantite'] ?? 1) as num).toDouble() : 0.0;
@@ -824,7 +824,7 @@ class _VentePageState extends State<VentePage> with AppRefreshListener {
               selectedUnite = option.unite;
               facteurConversion = option.factorToBase;
               currentPrice = PackagingUtils.priceForUnit(product, option.unite);
-              priceController.text = currentPrice.toStringAsFixed(0);
+              priceController.text = PackagingUtils.formatSalePrice(currentPrice);
             });
           }
 
@@ -834,6 +834,9 @@ class _VentePageState extends State<VentePage> with AppRefreshListener {
           final stockProgress = (maxStock > 0 ? stockNecessaire / maxStock : 0.0).clamp(0.0, 1.0);
 
           return Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(stateContext).size.height * 0.92,
+            ),
             padding: EdgeInsets.only(
               left: 24, right: 24, top: 20,
               bottom: 24 + MediaQuery.of(stateContext).viewInsets.bottom,
@@ -846,9 +849,10 @@ class _VentePageState extends State<VentePage> with AppRefreshListener {
               ),
               border: Border(top: BorderSide(color: _p.borderStrong, width: 0.5)),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                 // Drag handle
                 Center(
                   child: Container(
@@ -938,9 +942,7 @@ class _VentePageState extends State<VentePage> with AppRefreshListener {
                     runSpacing: 8,
                     children: saleOptions.map((opt) {
                       final active = selectedUnite == opt.unite;
-                      final factorLabel = opt.factorToBase == 1
-                          ? opt.label
-                          : '${opt.label} (×${opt.factorToBase.toStringAsFixed(opt.factorToBase % 1 == 0 ? 0 : 1)} $baseUnite)';
+                      final factorLabel = PackagingUtils.saleOptionChipLabel(opt, baseUnite);
                       return InkWell(
                         onTap: () => updateUnite(opt),
                         borderRadius: BorderRadius.circular(20),
@@ -1137,7 +1139,7 @@ class _VentePageState extends State<VentePage> with AppRefreshListener {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  "${stockNecessaire.toStringAsFixed(stockNecessaire % 1 == 0 ? 0 : 1)} / ${maxStock.toStringAsFixed(maxStock % 1 == 0 ? 0 : 1)} $baseUnite",
+                                  "${PackagingUtils.formatQuantityBase(stockNecessaire)} / ${PackagingUtils.formatQuantityBase(maxStock)} $baseUnite",
                                   style: TextStyle(
                                     color: stockDepasse ? _p.danger : _p.textMute,
                                     fontSize: 11,
@@ -1283,6 +1285,7 @@ class _VentePageState extends State<VentePage> with AppRefreshListener {
                 ),
               ],
             ),
+          ),
           );
         },
       ),

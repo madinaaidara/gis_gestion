@@ -91,9 +91,12 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
 
 
   final _pageController = PageController();
+  late final List<ScrollController> _stepScrollControllers;
   int _step = 0;
   bool _saving = false;
-  bool _showAdvanced = false;
+  bool _showIdentityExtras = false;
+  bool _showPricingExtras = false;
+  bool _showStockExtras = false;
 
   final nomController = TextEditingController();
   final descriptionController = TextEditingController();
@@ -130,12 +133,16 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
   @override
   void initState() {
     super.initState();
+    _stepScrollControllers = List.generate(3, (_) => ScrollController());
     if (_isEdit) _loadFromProduct(widget.editProduct!);
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    for (final controller in _stepScrollControllers) {
+      controller.dispose();
+    }
     nomController.dispose();
     descriptionController.dispose();
     barcodeController.dispose();
@@ -179,11 +186,9 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
     selectedProfilApprovisionnement = (fournisseurController.text.isNotEmpty || _estUniteGros(selectedUniteAchat))
         ? 'grossiste'
         : 'detail';
-    _showAdvanced = p.vendEnGros ||
-        p.hasPackagingIntermediaire ||
-        (p.description?.trim().isNotEmpty ?? false) ||
-        (p.barcode?.trim().isNotEmpty ?? false) ||
-        fournisseurController.text.isNotEmpty;
+    _showIdentityExtras = (p.description?.trim().isNotEmpty ?? false) || (p.barcode?.trim().isNotEmpty ?? false);
+    _showPricingExtras = p.vendEnGros;
+    _showStockExtras = p.hasPackagingIntermediaire || fournisseurController.text.isNotEmpty;
   }
 
   double _parse(String t) => double.tryParse(t.trim().replaceAll(',', '.')) ?? 0;
@@ -234,6 +239,11 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
   void _goStep(int i) {
     setState(() => _step = i);
     _pageController.animateToPage(i, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final controller = _stepScrollControllers[i];
+      if (controller.hasClients) controller.jumpTo(0);
+    });
   }
 
   bool _validateStep(int step) {
@@ -266,7 +276,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
 
   Future<void> _save() async {
     if (!_validateStep(0) || !_validateStep(1)) return;
-    if (vendEnGros && _showAdvanced && _parse(prixVenteGrosController.text) <= 0) {
+    if (vendEnGros && _showPricingExtras && _parse(prixVenteGrosController.text) <= 0) {
       _toast('Indiquez le prix de vente en gros');
       return;
     }
@@ -274,7 +284,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
     setState(() => _saving = true);
     final repo = context.read<ProductsRepository>();
     final vm = context.read<ProductsViewModel>();
-    final prixGros = vendEnGros && _showAdvanced ? (_parse(prixVenteGrosController.text) > 0 ? _parse(prixVenteGrosController.text) : null) : null;
+    final prixGros = vendEnGros && _showPricingExtras ? (_parse(prixVenteGrosController.text) > 0 ? _parse(prixVenteGrosController.text) : null) : null;
 
     try {
       bool ok;
@@ -447,9 +457,14 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
   }
 
   Widget _buildStepIdentity() {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-      children: [
+    return ColoredBox(
+      color: _p.bg,
+      child: ListView(
+        controller: _stepScrollControllers[0],
+        primary: false,
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        children: [
         ProduitHelpTip(
           title: 'C\'est simple',
           message: 'Mettez le nom comme vous le dites à vos clients. '
@@ -464,37 +479,43 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
         _categoryChips(),
         const SizedBox(height: 20),
         InkWell(
-          onTap: () => setState(() => _showAdvanced = !_showAdvanced),
+          onTap: () => setState(() => _showIdentityExtras = !_showIdentityExtras),
           borderRadius: BorderRadius.circular(10),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
               children: [
-                Icon(_showAdvanced ? Icons.expand_less : Icons.tune_rounded, size: 18, color: _p.textMute),
+                Icon(_showIdentityExtras ? Icons.expand_less : Icons.tune_rounded, size: 18, color: _p.textMute),
                 const SizedBox(width: 8),
                 Text(
-                  _showAdvanced ? 'Masquer le plus (facultatif)' : 'Plus d\'options (facultatif)',
+                  _showIdentityExtras ? 'Masquer le plus (facultatif)' : 'Plus d\'options (facultatif)',
                   style:  TextStyle(color: _p.textMute, fontSize: 12),
                 ),
               ],
             ),
           ),
         ),
-        if (_showAdvanced) ...[
+        if (_showIdentityExtras) ...[
           const SizedBox(height: 12),
           _field(descriptionController, 'Description', 'Optionnel', Icons.notes_outlined, maxLines: 2),
           const SizedBox(height: 14),
           _field(barcodeController, 'Code-barres', 'EAN / QR', Icons.qr_code_2_outlined, keyboard: TextInputType.number),
         ],
       ],
+    ),
     );
   }
 
   Widget _buildStepPricing() {
     final cout = _coutUnitaire();
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-      children: [
+    return ColoredBox(
+      color: _p.bg,
+      child: ListView(
+        controller: _stepScrollControllers[1],
+        primary: false,
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        children: [
         ProduitHelpTip(
           title: 'Comment ça marche ?',
           message: '1) Dites comment vous achetez (carton, sac…)\n'
@@ -566,7 +587,29 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
           accent: _p.success,
           onChanged: (_) => setState(() {}),
         ),
-        if (_showAdvanced) ...[
+        if (_coutUnitaire() > 0 || _parse(prixVenteUnitaireController.text) > 0) ...[
+          const SizedBox(height: 16),
+          _margePreview(),
+        ],
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: () => setState(() => _showPricingExtras = !_showPricingExtras),
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                Icon(_showPricingExtras ? Icons.expand_less : Icons.storefront_outlined, size: 18, color: _p.textMute),
+                const SizedBox(width: 8),
+                Text(
+                  _showPricingExtras ? 'Masquer vente en gros' : 'Plus d\'options (vente en gros)',
+                  style: TextStyle(color: _p.textMute, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_showPricingExtras) ...[
           const SizedBox(height: 14),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -591,18 +634,20 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
               suffix: widget.devise,
             ),
         ],
-        if (_coutUnitaire() > 0 || _parse(prixVenteUnitaireController.text) > 0) ...[
-          const SizedBox(height: 16),
-          _margePreview(),
-        ],
       ],
+    ),
     );
   }
 
   Widget _buildStepStock() {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-      children: [
+    return ColoredBox(
+      color: _p.bg,
+      child: ListView(
+        controller: _stepScrollControllers[2],
+        primary: false,
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        children: [
         ProduitHelpTip(
           title: 'Comptez ce qu\'il reste',
           message: 'Regardez en rayon ou en réserve : combien de cartons, sacs ou pièces il vous reste aujourd\'hui.',
@@ -628,8 +673,26 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
             style:  TextStyle(color: _p.success, fontSize: 12, fontWeight: FontWeight.w600),
           ),
         ],
-        if (_showAdvanced) ...[
-          const SizedBox(height: 24),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: () => setState(() => _showStockExtras = !_showStockExtras),
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                Icon(_showStockExtras ? Icons.expand_less : Icons.local_shipping_outlined, size: 18, color: _p.textMute),
+                const SizedBox(width: 8),
+                Text(
+                  _showStockExtras ? 'Masquer approvisionnement' : 'Plus d\'options (approvisionnement)',
+                  style: TextStyle(color: _p.textMute, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_showStockExtras) ...[
+          const SizedBox(height: 12),
           Text('Approvisionnement', style: _labelStyle()),
           const SizedBox(height: 8),
           _chipRow(['detail', 'grossiste'], selectedProfilApprovisionnement, (v) => setState(() => selectedProfilApprovisionnement = v), labels: const {
@@ -664,6 +727,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
         const SizedBox(height: 20),
         _recapCard(),
       ],
+    ),
     );
   }
 

@@ -79,6 +79,49 @@ class PackagingUtils {
     return p.prixVenteUnitaire * factorToBase(p, unite);
   }
 
+  /// Coût d'achat pour 1 unité de base (kg, litre, pièce…).
+  static double coutUnitaireBase(ProduitModel p) {
+    if (p.prixAchatTotal <= 0) return 0;
+    final perLot = baseUnitsPerLot(p);
+    return p.prixAchatTotal / (perLot > 0 ? perLot : 1);
+  }
+
+  /// Quantité en unité de base sans arrondir les petites valeurs à 0.
+  static String formatQuantityBase(double value) {
+    if (value == 0) return '0';
+    if (value % 1 == 0) return value.toStringAsFixed(0);
+    final abs = value.abs();
+    final decimals = abs >= 1
+        ? 1
+        : abs >= 0.01
+            ? 2
+            : abs >= 0.001
+                ? 3
+                : 4;
+    var s = value.toStringAsFixed(decimals);
+    if (s.contains('.')) {
+      s = s.replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+    }
+    return s;
+  }
+
+  static String formatSalePrice(double price) {
+    if (price <= 0) return '0';
+    if (price >= 1) return price.toStringAsFixed(0);
+    if (price >= 0.01) return price.toStringAsFixed(2);
+    return price.toStringAsFixed(4);
+  }
+
+  static String formatFactorToBase(double factor, String baseUnite) {
+    if (factor == 1) return baseUnite;
+    return '${formatQuantityBase(factor)} $baseUnite';
+  }
+
+  static String saleOptionChipLabel(SaleUnitOption opt, String baseUnite) {
+    if (opt.factorToBase == 1) return opt.label;
+    return '${opt.label} (×${formatFactorToBase(opt.factorToBase, baseUnite)})';
+  }
+
   /// Affichage stock lisible : « 455 pièces (5 paquets) »
   static String formatStock(ProduitModel p) {
     final base = p.uniteVente ?? 'pièce';
