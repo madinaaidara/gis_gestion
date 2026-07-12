@@ -85,10 +85,16 @@ class CreditsRepository extends ChangeNotifier {
 
   Future<bool> encaisserRemboursement(String creditId, double montantVerse) async {
     try {
+      CreditModel credit;
       final index = _credits.indexWhere((c) => c.id == creditId);
-      if (index == -1) return false;
+      if (index == -1) {
+        final response = await _supabase.from('credits').select('*').eq('id', creditId).maybeSingle();
+        if (response == null) return false;
+        credit = CreditModel.fromJson(response);
+      } else {
+        credit = _credits[index];
+      }
 
-      final credit = _credits[index];
       if (montantVerse <= 0 || montantVerse > credit.reste + 0.0001) return false;
 
       final double nouveauPaye = credit.montantPaye + montantVerse;
@@ -124,20 +130,27 @@ class CreditsRepository extends ChangeNotifier {
         }
       }
 
-      _credits[index] = CreditModel(
-        id: credit.id,
-        shopId: credit.shopId,
-        venteId: credit.venteId,
-        clientNom: credit.clientNom,
-        telephoneClient: credit.telephoneClient,
-        montantTotal: credit.montantTotal,
-        montantPaye: nouveauPaye,
-        reste: nouveauReste,
-        statut: nouveauStatut,
-        dateCredit: credit.dateCredit,
-        note: credit.note,
-        createdAt: credit.createdAt,
-      );
+      if (index == -1) {
+        final shopId = credit.shopId;
+        if (shopId != null && shopId.isNotEmpty) {
+          await fetchCredits(shopId);
+        }
+      } else {
+        _credits[index] = CreditModel(
+          id: credit.id,
+          shopId: credit.shopId,
+          venteId: credit.venteId,
+          clientNom: credit.clientNom,
+          telephoneClient: credit.telephoneClient,
+          montantTotal: credit.montantTotal,
+          montantPaye: nouveauPaye,
+          reste: nouveauReste,
+          statut: nouveauStatut,
+          dateCredit: credit.dateCredit,
+          note: credit.note,
+          createdAt: credit.createdAt,
+        );
+      }
 
       notifyListeners();
       return true;

@@ -18,6 +18,7 @@ class UnitConverter {
 
       // QUANTITÉ
       case 'piece':
+      case 'pièce':
         return quantity;
 
       default:
@@ -41,6 +42,7 @@ class UnitConverter {
         return quantity * 1000;
 
       case 'piece':
+      case 'pièce':
         return quantity;
 
       default:

@@ -93,10 +93,24 @@ class ProduitHelpTip extends StatelessWidget {
                 if (title.isNotEmpty)
                   Text(
                     title,
-                    style: GoogleFonts.plusJakartaSans(color: color, fontSize: 13, fontWeight: FontWeight.w700),
+                    style: GoogleFonts.plusJakartaSans(
+                      color: color,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      decoration: TextDecoration.none,
+                    ),
                   ),
                 if (title.isNotEmpty) const SizedBox(height: 4),
-                Text(message, style: TextStyle(color: text, fontSize: 12, height: 1.45, fontWeight: FontWeight.w500)),
+                Text(
+                  message,
+                  style: TextStyle(
+                    color: text,
+                    fontSize: 12,
+                    height: 1.45,
+                    fontWeight: FontWeight.w500,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
               ],
             ),
           ),

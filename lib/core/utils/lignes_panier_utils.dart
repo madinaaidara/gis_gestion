@@ -92,14 +92,6 @@ class LignesPanierUtils {
     for (final p in produits) {
       if (p.nom.trim().toLowerCase() == name) return p;
     }
-    ProduitModel? partial;
-    for (final p in produits) {
-      final pn = p.nom.trim().toLowerCase();
-      if (pn.contains(name) || name.contains(pn)) {
-        partial = p;
-        break;
-      }
-    }
-    return partial;
+    return null;
   }
 }

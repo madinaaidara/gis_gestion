@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_surface.dart';
 import '../../../core/theme/gis_palette.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -72,11 +71,14 @@ class ProduitFormPanel extends StatefulWidget {
     return Navigator.of(context).push<bool>(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) => ProduitFormPanel(
-          shopId: shopId,
-          devise: devise,
-          categories: categories,
-          editProduct: editProduct,
+        builder: (ctx) => Material(
+          color: GisPalette.of(ctx).bg,
+          child: ProduitFormPanel(
+            shopId: shopId,
+            devise: devise,
+            categories: categories,
+            editProduct: editProduct,
+          ),
         ),
       ),
     );
@@ -274,9 +276,19 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
     );
   }
 
+  double? _resolvePrixGros() {
+    if (!vendEnGros) return null;
+    final parsed = _parse(prixVenteGrosController.text);
+    if (parsed > 0) return parsed;
+    if (_isEdit && widget.editProduct!.prixVenteGros != null && widget.editProduct!.prixVenteGros! > 0) {
+      return widget.editProduct!.prixVenteGros;
+    }
+    return null;
+  }
+
   Future<void> _save() async {
     if (!_validateStep(0) || !_validateStep(1)) return;
-    if (vendEnGros && _showPricingExtras && _parse(prixVenteGrosController.text) <= 0) {
+    if (vendEnGros && _resolvePrixGros() == null) {
       _toast('Indiquez le prix de vente en gros');
       return;
     }
@@ -284,7 +296,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
     setState(() => _saving = true);
     final repo = context.read<ProductsRepository>();
     final vm = context.read<ProductsViewModel>();
-    final prixGros = vendEnGros && _showPricingExtras ? (_parse(prixVenteGrosController.text) > 0 ? _parse(prixVenteGrosController.text) : null) : null;
+    final prixGros = _resolvePrixGros();
 
     try {
       bool ok;
@@ -350,28 +362,34 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
+    return Material(
       color: _p.bg,
       child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildTopBar(),
-            _buildStepIndicator(),
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
-                onPageChanged: (i) => setState(() => _step = i),
-                children: [
-                  _buildStepIdentity(),
-                  _buildStepPricing(),
-                  _buildStepStock(),
-                ],
+        child: Theme(
+          data: Theme.of(context).copyWith(
+            splashFactory: InkRipple.splashFactory,
+            highlightColor: _p.accent.withValues(alpha: 0.06),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildTopBar(),
+              _buildStepIndicator(),
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  onPageChanged: (i) => setState(() => _step = i),
+                  children: [
+                    _buildStepIdentity(),
+                    _buildStepPricing(),
+                    _buildStepStock(),
+                  ],
+                ),
               ),
-            ),
-            _buildBottomBar(),
-          ],
+              _buildBottomBar(),
+            ],
+          ),
         ),
       ),
     );
@@ -396,7 +414,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
                 ),
                 Text(
                   _stepSubtitle,
-                  style:  TextStyle(color: _p.textDim, fontSize: 11),
+                  style: _bodyStyle(11, color: _p.textDim),
                 ),
               ],
             ),
@@ -441,11 +459,7 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
                   const SizedBox(height: 4),
                   Text(
                     labels[i],
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: i == _step ? FontWeight.w700 : FontWeight.w500,
-                      color: i == _step ? colors[i] : _p.textDim,
-                    ),
+                    style: _bodyStyle(10, color: i == _step ? colors[i] : _p.textDim, weight: i == _step ? FontWeight.w700 : FontWeight.w500),
                   ),
                 ],
               ),
@@ -457,14 +471,12 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
   }
 
   Widget _buildStepIdentity() {
-    return ColoredBox(
-      color: _p.bg,
-      child: ListView(
-        controller: _stepScrollControllers[0],
-        primary: false,
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        children: [
+    return ListView(
+      controller: _stepScrollControllers[0],
+      primary: false,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      children: [
         ProduitHelpTip(
           title: 'C\'est simple',
           message: 'Mettez le nom comme vous le dites à vos clients. '
@@ -478,22 +490,11 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
         const SizedBox(height: 8),
         _categoryChips(),
         const SizedBox(height: 20),
-        InkWell(
+        _optionsToggle(
+          expanded: _showIdentityExtras,
+          icon: Icons.tune_rounded,
+          label: _showIdentityExtras ? 'Masquer le plus (facultatif)' : 'Plus d\'options (facultatif)',
           onTap: () => setState(() => _showIdentityExtras = !_showIdentityExtras),
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              children: [
-                Icon(_showIdentityExtras ? Icons.expand_less : Icons.tune_rounded, size: 18, color: _p.textMute),
-                const SizedBox(width: 8),
-                Text(
-                  _showIdentityExtras ? 'Masquer le plus (facultatif)' : 'Plus d\'options (facultatif)',
-                  style:  TextStyle(color: _p.textMute, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
         ),
         if (_showIdentityExtras) ...[
           const SizedBox(height: 12),
@@ -502,20 +503,17 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
           _field(barcodeController, 'Code-barres', 'EAN / QR', Icons.qr_code_2_outlined, keyboard: TextInputType.number),
         ],
       ],
-    ),
     );
   }
 
   Widget _buildStepPricing() {
     final cout = _coutUnitaire();
-    return ColoredBox(
-      color: _p.bg,
-      child: ListView(
-        controller: _stepScrollControllers[1],
-        primary: false,
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        children: [
+    return ListView(
+      controller: _stepScrollControllers[1],
+      primary: false,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      children: [
         ProduitHelpTip(
           title: 'Comment ça marche ?',
           message: '1) Dites comment vous achetez (carton, sac…)\n'
@@ -592,38 +590,25 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
           _margePreview(),
         ],
         const SizedBox(height: 8),
-        InkWell(
+        _optionsToggle(
+          expanded: _showPricingExtras,
+          icon: Icons.storefront_outlined,
+          label: _showPricingExtras ? 'Masquer vente en gros' : 'Plus d\'options (vente en gros)',
           onTap: () => setState(() => _showPricingExtras = !_showPricingExtras),
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              children: [
-                Icon(_showPricingExtras ? Icons.expand_less : Icons.storefront_outlined, size: 18, color: _p.textMute),
-                const SizedBox(width: 8),
-                Text(
-                  _showPricingExtras ? 'Masquer vente en gros' : 'Plus d\'options (vente en gros)',
-                  style: TextStyle(color: _p.textMute, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
         ),
         if (_showPricingExtras) ...[
           const SizedBox(height: 14),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
+          _switchRow(
+            title: 'Vente en gros',
+            subtitle: 'Prix revendeur / $selectedUniteAchat',
             value: vendEnGros,
-            activeTrackColor: _p.accent.withValues(alpha: 0.5),
-            activeThumbColor: _p.accent,
-            title:  Text('Vente en gros', style: TextStyle(color: _p.text, fontSize: 13)),
-            subtitle: Text('Prix revendeur / $selectedUniteAchat', style:  TextStyle(color: _p.textDim, fontSize: 11)),
             onChanged: (v) => setState(() {
               vendEnGros = v;
               if (!v) prixVenteGrosController.clear();
             }),
           ),
-          if (vendEnGros)
+          if (vendEnGros) ...[
+            const SizedBox(height: 12),
             _field(
               prixVenteGrosController,
               'Prix gros',
@@ -633,21 +618,19 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
               formatters: _numericFormatters,
               suffix: widget.devise,
             ),
+          ],
         ],
       ],
-    ),
     );
   }
 
   Widget _buildStepStock() {
-    return ColoredBox(
-      color: _p.bg,
-      child: ListView(
-        controller: _stepScrollControllers[2],
-        primary: false,
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        children: [
+    return ListView(
+      controller: _stepScrollControllers[2],
+      primary: false,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      children: [
         ProduitHelpTip(
           title: 'Comptez ce qu\'il reste',
           message: 'Regardez en rayon ou en réserve : combien de cartons, sacs ou pièces il vous reste aujourd\'hui.',
@@ -674,22 +657,11 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
           ),
         ],
         const SizedBox(height: 8),
-        InkWell(
+        _optionsToggle(
+          expanded: _showStockExtras,
+          icon: Icons.local_shipping_outlined,
+          label: _showStockExtras ? 'Masquer approvisionnement' : 'Plus d\'options (approvisionnement)',
           onTap: () => setState(() => _showStockExtras = !_showStockExtras),
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              children: [
-                Icon(_showStockExtras ? Icons.expand_less : Icons.local_shipping_outlined, size: 18, color: _p.textMute),
-                const SizedBox(width: 8),
-                Text(
-                  _showStockExtras ? 'Masquer approvisionnement' : 'Plus d\'options (approvisionnement)',
-                  style: TextStyle(color: _p.textMute, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
         ),
         if (_showStockExtras) ...[
           const SizedBox(height: 12),
@@ -706,19 +678,17 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
             _field(telephoneFournisseurController, 'Téléphone', 'Optionnel', Icons.phone_outlined, keyboard: TextInputType.phone),
           ],
           const SizedBox(height: 16),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
+          _switchRow(
+            title: 'Conditionnement 3 niveaux',
+            subtitle: 'Paquet → sachet → pièce',
             value: useThreeLevelPackaging,
-            activeTrackColor: _p.accent.withValues(alpha: 0.5),
-            activeThumbColor: _p.accent,
-            title:  Text('Conditionnement 3 niveaux', style: TextStyle(color: _p.text, fontSize: 13)),
-            subtitle:  Text('Paquet → sachet → pièce', style: TextStyle(color: _p.textDim, fontSize: 11)),
             onChanged: (v) => setState(() {
               useThreeLevelPackaging = v;
               if (v) quantiteAchatController.clear();
             }),
           ),
           if (useThreeLevelPackaging) ...[
+            const SizedBox(height: 12),
             _field(quantiteIntermediaireParLotController, 'Par $selectedUniteAchat', 'Nb sachets', Icons.layers_outlined, formatters: _numericFormatters, onChanged: (_) => setState(() {})),
             const SizedBox(height: 10),
             _field(quantiteBaseParIntermediaireController, 'Par $selectedUniteIntermediaire', 'Nb pièces', Icons.grid_view_rounded, formatters: _numericFormatters, onChanged: (_) => setState(() {})),
@@ -727,7 +697,6 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
         const SizedBox(height: 20),
         _recapCard(),
       ],
-    ),
     );
   }
 
@@ -807,7 +776,11 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
           if (_step > 0)
             TextButton(
               onPressed: _saving ? null : () => _goStep(_step - 1),
-              child:  Text('Retour', style: TextStyle(color: _p.textMute)),
+              style: TextButton.styleFrom(
+                foregroundColor: _p.textMute,
+                textStyle: _bodyStyle(13, color: _p.textMute),
+              ),
+              child: const Text('Retour'),
             )
           else
             const SizedBox(width: 8),
@@ -835,8 +808,70 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
     );
   }
 
+  TextStyle _bodyStyle(double size, {Color? color, FontWeight weight = FontWeight.w500}) =>
+      TextStyle(color: color ?? _p.text, fontSize: size, fontWeight: weight, decoration: TextDecoration.none, height: 1.35);
+
   TextStyle _labelStyle({Color? color}) =>
-      GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: color ?? _p.textMute);
+      GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: color ?? _p.textMute, decoration: TextDecoration.none);
+
+  Widget _optionsToggle({
+    required bool expanded,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            children: [
+              Icon(expanded ? Icons.expand_less : icon, size: 18, color: _p.textMute),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(label, style: _bodyStyle(12, color: _p.textMute)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _switchRow({
+    required String title,
+    String? subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: _bodyStyle(13, color: _p.text, weight: FontWeight.w600)),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(subtitle, style: _bodyStyle(11, color: _p.textDim)),
+              ],
+            ],
+          ),
+        ),
+        Switch(
+          value: value,
+          onChanged: onChanged,
+          activeTrackColor: _p.accent.withValues(alpha: 0.5),
+          activeThumbColor: _p.accent,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+      ],
+    );
+  }
 
   Widget _field(
     TextEditingController c,
@@ -863,11 +898,11 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
           maxLines: maxLines,
           keyboardType: keyboard,
           inputFormatters: formatters,
-          style:  TextStyle(color: _p.text, fontSize: 15),
+          style: _bodyStyle(15, color: _p.text, weight: FontWeight.w500),
           onChanged: onChanged,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle:  TextStyle(color: _p.textDim, fontSize: 13),
+            hintStyle: _bodyStyle(13, color: _p.textDim),
             filled: true,
             fillColor: _p.surface,
             prefixIcon: Icon(icon, size: 18, color: fieldAccent),
@@ -950,25 +985,31 @@ class _ProduitFormPanelState extends State<ProduitFormPanel> {
         return Expanded(
           child: Padding(
             padding: EdgeInsets.only(right: id != 'volume' ? 8 : 0),
-            child: InkWell(
-              onTap: () => setState(() {
-                selectedModeVente = id;
-                selectedUniteVente = _unitesForMode(id).first;
-              }),
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: active ? _p.accent.withValues(alpha: 0.12) : _p.surface,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: active ? _p.accent.withValues(alpha: 0.4) : _p.border),
-                ),
-                child: Column(
-                  children: [
-                    Icon(icon, size: 16, color: active ? _p.accentSoft : _p.textMute),
-                    const SizedBox(height: 4),
-                    Text(label, style: TextStyle(fontSize: 10, color: active ? _p.accentSoft : _p.textMute, fontWeight: active ? FontWeight.w600 : FontWeight.w500)),
-                  ],
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => setState(() {
+                  selectedModeVente = id;
+                  selectedUniteVente = _unitesForMode(id).first;
+                }),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: active ? _p.accent.withValues(alpha: 0.12) : _p.surface,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: active ? _p.accent.withValues(alpha: 0.4) : _p.border),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(icon, size: 16, color: active ? _p.accentSoft : _p.textMute),
+                      const SizedBox(height: 4),
+                      Text(
+                        label,
+                        style: _bodyStyle(10, color: active ? _p.accentSoft : _p.textMute, weight: active ? FontWeight.w600 : FontWeight.w500),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

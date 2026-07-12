@@ -138,6 +138,30 @@ class ProductsRepository extends ChangeNotifier {
   /// ============================================
   /// AJUSTER LE STOCK DE MANIÈRE RAPIDE (APRÈS VENTE COMTPOIR)
   /// ============================================
+  Future<double?> fetchStock(String productId) async {
+    try {
+      final response = await _supabase.from('produits').select('stock').eq('id', productId).maybeSingle();
+      if (response == null) return null;
+      return (response['stock'] ?? 0).toDouble();
+    } catch (e) {
+      debugPrint('❌ Erreur fetchStock: $e');
+      return null;
+    }
+  }
+
+  Future<bool> decrementStock(String productId, double volume) async {
+    if (volume <= 0) return true;
+    try {
+      final currentStock = await fetchStock(productId);
+      if (currentStock == null) return false;
+      if (volume > currentStock + 0.0001) return false;
+      return updateStock(productId, currentStock - volume);
+    } catch (e) {
+      debugPrint('❌ Erreur decrementStock: $e');
+      return false;
+    }
+  }
+
   Future<bool> updateStock(String productId, double newStockValue) async {
     try {
       await _supabase

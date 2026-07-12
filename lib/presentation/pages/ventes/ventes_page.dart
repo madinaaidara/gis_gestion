@@ -146,7 +146,7 @@ class _VentePageState extends State<VentePage> with AppRefreshListener {
         _showSnackBar("Nom client requis", false);
         return;
       }
-      if (vm.amountPaid > vm.totalTTC) {
+      if (vm.amountPaid < 0 || vm.amountPaid > vm.totalTTC) {
         _showSnackBar("Acompte invalide", false);
         return;
       }
@@ -160,6 +160,10 @@ class _VentePageState extends State<VentePage> with AppRefreshListener {
       _showSnackBar("Session expirée", false);
       return;
     }
+    if (shopId == null || shopId!.isEmpty) {
+      _showSnackBar("Boutique non chargée", false);
+      return;
+    }
 
     final receipt = await vm.executerEncaissement(
       shopId!,
@@ -169,7 +173,8 @@ class _VentePageState extends State<VentePage> with AppRefreshListener {
     );
 
     if (receipt != null) {
-      _showSnackBar(vm.isCreditMode ? "✓ Crédit enregistré" : "✓ Vente enregistrée", true);
+      final estCredit = receipt['est_credit'] == true;
+      _showSnackBar(estCredit ? "✓ Crédit enregistré" : "✓ Vente enregistrée", true);
       clientNameController.clear();
       clientPhoneController.clear();
       amountPaidController.clear();
@@ -1389,7 +1394,7 @@ class _VentePageState extends State<VentePage> with AppRefreshListener {
           Icons.account_balance_wallet_outlined,
           suffix: devise,
           isNumber: true,
-          onChanged: (v) => vm.setAmountPaid(double.tryParse(v) ?? 0),
+          onChanged: (v) => vm.setAmountPaid(double.tryParse(v.replaceAll(',', '.')) ?? 0),
         ),
         const SizedBox(height: 8),
         Container(

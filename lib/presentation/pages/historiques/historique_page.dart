@@ -91,10 +91,9 @@ class _HistoriquePageState extends State<HistoriquePage> with SingleTickerProvid
           _loadCredits(),
         ]);
       }
-
-      if (mounted) setState(() => _isLoading = false);
     } catch (e) {
       debugPrint('Erreur chargement historique: $e');
+    } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -314,7 +313,7 @@ class _HistoriquePageState extends State<HistoriquePage> with SingleTickerProvid
 
     if (_selectedType == 'all') {
       items = [
-        ..._ventes.map((v) => {...v, '_type': 'vente'}),
+        ..._ventes.where((v) => v['est_credit'] != true).map((v) => {...v, '_type': 'vente'}),
         ..._credits.map((c) => {...c, '_type': 'credit'}),
       ];
       items.sort((a, b) {

@@ -142,7 +142,7 @@ class VentesViewModel extends ChangeNotifier {
   }
 
   void setAmountPaid(double value) {
-    _amountPaid = value;
+    _amountPaid = value < 0 ? 0 : value;
     notifyListeners();
   }
 
@@ -180,15 +180,35 @@ class VentesViewModel extends ChangeNotifier {
 
       final lignesPanier = LignesPanierUtils.fromPanier(_panier);
 
+      final Map<String, double> volumeVenduParProduit = {};
+      for (var item in _panier) {
+        final String id = item['produit_id']?.toString() ?? '';
+        if (id.isEmpty) continue;
+        final volume = (item['quantite'] ?? 1).toDouble() * (item['facteur_conversion'] ?? 1.0).toDouble();
+        volumeVenduParProduit[id] = (volumeVenduParProduit[id] ?? 0) + volume;
+      }
+
+      for (final entry in volumeVenduParProduit.entries) {
+        final liveStock = await _productsRepository.fetchStock(entry.key);
+        if (liveStock == null || entry.value > liveStock + 0.0001) {
+          debugPrint('🚨 Stock insuffisant pour produit ${entry.key}');
+          return null;
+        }
+      }
+
+      final creditReste = _isCreditMode ? montantRestant : 0.0;
+      final estCreditOuvert = _isCreditMode && creditReste > 0.0001;
+      final coutAchatTotal = _panier.fold(0.0, (sum, item) {
+        final factor = (item['facteur_conversion'] ?? 1.0).toDouble();
+        return sum + ((item['prix_achat_unitaire'] ?? 0.0) * (item['quantite'] ?? 1) * factor);
+      });
+
       final Map<String, dynamic> ventePayload = {
         'shop_id': shopId,
         'seller_id': sellerId,
         'nom_produit': resume.join(', '),
         'quantite': totalQuantiteGlobale,
-        'prix_achat_unitaire': _panier.fold(0.0, (sum, item) {
-          final factor = (item['facteur_conversion'] ?? 1.0).toDouble();
-          return sum + ((item['prix_achat_unitaire'] ?? 0.0) * (item['quantite'] ?? 1) * factor);
-        }),
+        'prix_achat_unitaire': coutAchatTotal,
         'prix_vente_prevu': _panier.fold(0.0, (sum, item) => sum + ((item['prix_initial'] ?? 0.0) * (item['quantite'] ?? 1))),
         'prix_vendu_unitaire': totalTTC / (totalQuantiteGlobale > 0 ? totalQuantiteGlobale : 1.0),
         'total': totalTTC,
@@ -197,12 +217,12 @@ class VentesViewModel extends ChangeNotifier {
         'beneficiaire': benefice,
         'type_vente': typeVenteSaisi,
         'client_nom': _isCreditMode ? (clientNom.isNotEmpty ? clientNom : 'Client Créditeur') : (clientNom.isNotEmpty ? clientNom : 'Client Comptant'),
-        'status': _isCreditMode ? 'en_cours' : 'paye',
-        'methode_paiement': _isCreditMode ? 'Crédit' : _selectedPaymentMethod,
-        'est_credit': _isCreditMode,
+        'status': estCreditOuvert ? 'en_cours' : 'paye',
+        'methode_paiement': estCreditOuvert ? 'Crédit' : _selectedPaymentMethod,
+        'est_credit': estCreditOuvert,
         'remise': remiseGlobale,
         'montant_paye': _isCreditMode ? _amountPaid : totalTTC,
-        'reste_a_payer': _isCreditMode ? montantRestant : 0.0,
+        'reste_a_payer': estCreditOuvert ? creditReste : 0.0,
         'date_vente': DateTime.now().toIso8601String(),
         'created_at': DateTime.now().toIso8601String(),
         'lignes_panier': lignesPanier,
@@ -244,24 +264,22 @@ class VentesViewModel extends ChangeNotifier {
         }
       }
 
-      final Map<String, double> stockInitialParProduit = {};
-      final Map<String, double> volumeVenduParProduit = {};
-
-      for (var item in _panier) {
-        final String id = item['produit_id']?.toString() ?? '';
-        if (id.isEmpty) continue;
-        stockInitialParProduit.putIfAbsent(id, () => (item['stock'] ?? 0.0).toDouble());
-        final volume = (item['quantite'] ?? 1).toDouble() * (item['facteur_conversion'] ?? 1.0).toDouble();
-        volumeVenduParProduit[id] = (volumeVenduParProduit[id] ?? 0) + volume;
-      }
-
       for (final entry in volumeVenduParProduit.entries) {
-        final stockActuel = stockInitialParProduit[entry.key] ?? 0;
-        await _productsRepository.updateStock(entry.key, stockActuel - entry.value);
+        final ok = await _productsRepository.decrementStock(entry.key, entry.value);
+        if (!ok) {
+          debugPrint('🚨 Échec décrément stock pour ${entry.key} — annulation vente');
+          if (completedVenteId.isNotEmpty) {
+            try {
+              await Supabase.instance.client.from('ventes').delete().eq('id', completedVenteId);
+            } catch (e) {
+              debugPrint('⚠️ Impossible de supprimer la vente orpheline: $e');
+            }
+          }
+          return null;
+        }
       }
 
-      // Création du crédit si nécessaire
-      if (_isCreditMode && completedVenteId.isNotEmpty) {
+      if (estCreditOuvert && completedVenteId.isNotEmpty) {
         final nouveauCredit = CreditModel(
           shopId: shopId,
           venteId: completedVenteId,
@@ -269,7 +287,7 @@ class VentesViewModel extends ChangeNotifier {
           telephoneClient: clientPhone,
           montantTotal: totalTTC,
           montantPaye: _amountPaid,
-          reste: montantRestant,
+          reste: creditReste,
           statut: 'en_cours',
           dateCredit: DateTime.now().toIso8601String(),
         );

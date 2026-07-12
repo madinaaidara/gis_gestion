@@ -197,7 +197,7 @@ class _ProduitsPageState extends State<ProduitsPage> with AppRefreshListener {
   void _showDetails(ProduitModel p) {
     final d = devise ?? 'FCFA';
     final unite = p.uniteVente ?? 'pièce';
-    final cout = p.quantiteParUnite > 0 ? p.prixAchatTotal / p.quantiteParUnite : 0.0;
+    final cout = PackagingUtils.coutUnitaireBase(p);
     final marge = p.prixVenteUnitaire - cout;
     final stockText = PackagingUtils.formatStock(p);
 

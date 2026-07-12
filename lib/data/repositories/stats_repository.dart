@@ -10,6 +10,11 @@ class StatsRepository {
     return status == 'annulee' || status == 'annulée';
   }
 
+  double _montantVente(Map<String, dynamic> vente) {
+    final raw = vente['total'] ?? vente['montant_total'];
+    return (raw as num?)?.toDouble() ?? 0.0;
+  }
+
   /// Récupération des données du dashboard
   Future<Map<String, dynamic>> getDashboardData(String shopId, String periode) async {
     try {
@@ -20,18 +25,18 @@ class StatsRepository {
       final ventesPrecedentes = await _fetchVentes(shopId, datePrecedente);
 
       double sumCA(List<Map<String, dynamic>> ventes) =>
-          ventes.fold(0.0, (s, v) => s + ((v['total'] as num?)?.toDouble() ?? 0.0));
+          ventes.fold(0.0, (s, v) => s + _montantVente(v));
 
       double sumBenefice(List<Map<String, dynamic>> ventes) =>
           ventes.fold(0.0, (s, v) => s + ((v['benefice_reel'] as num?)?.toDouble() ?? 0.0));
 
       double sumComptant(List<Map<String, dynamic>> ventes) => ventes
           .where((v) => v['est_credit'] != true)
-          .fold(0.0, (s, v) => s + ((v['total'] as num?)?.toDouble() ?? 0.0));
+          .fold(0.0, (s, v) => s + _montantVente(v));
 
       double sumCredit(List<Map<String, dynamic>> ventes) => ventes
           .where((v) => v['est_credit'] == true)
-          .fold(0.0, (s, v) => s + ((v['total'] as num?)?.toDouble() ?? 0.0));
+          .fold(0.0, (s, v) => s + _montantVente(v));
 
       int countClients(List<Map<String, dynamic>> ventes) {
         final clients = <String>{};
@@ -113,7 +118,7 @@ class StatsRepository {
         final dateVente = vente['date_vente'];
         if (dateVente == null) continue;
         final date = dateVente.toString().substring(0, 10);
-        final total = (vente['total'] as num?)?.toDouble() ?? 0.0;
+        final total = _montantVente(vente);
         ventesParJour[date] = (ventesParJour[date] ?? 0.0) + total;
       }
 
@@ -148,7 +153,7 @@ class StatsRepository {
         final parts = nomRaw.split(', ');
         if (parts.length == 1 && !pattern.hasMatch(parts.first.trim())) {
           final qty = (vente['quantite'] as num?)?.toDouble() ?? 1.0;
-          final total = (vente['total'] as num?)?.toDouble() ?? 0.0;
+          final total = _montantVente(vente);
           _addProductAgg(produitsAgg, nomRaw.trim(), qty, total);
           continue;
         }
@@ -159,8 +164,8 @@ class StatsRepository {
             final name = match.group(1)!.trim();
             final qty = double.tryParse(match.group(2)!) ?? 1.0;
             final share = parts.length > 1
-                ? ((vente['total'] as num?)?.toDouble() ?? 0.0) / parts.length
-                : (vente['total'] as num?)?.toDouble() ?? 0.0;
+                ? _montantVente(vente) / parts.length
+                : _montantVente(vente);
             _addProductAgg(produitsAgg, name, qty, share);
           }
         }
@@ -240,7 +245,7 @@ class StatsRepository {
         final idx = indexByKey[key];
         if (idx == null) continue;
 
-        final total = (vente['total'] as num?)?.toDouble() ?? 0.0;
+        final total = _montantVente(vente);
         evolutionData[idx]['value'] = (evolutionData[idx]['value'] as double) + total;
       }
 
@@ -305,7 +310,7 @@ class StatsRepository {
         if (dateVente == null) continue;
         final key = dateVente.toString().substring(0, 10);
         days.putIfAbsent(key, () => {'ca': 0.0, 'ventes': 0, 'benefice': 0.0});
-        days[key]!['ca'] = (days[key]!['ca'] as double) + ((vente['total'] as num?)?.toDouble() ?? 0.0);
+        days[key]!['ca'] = (days[key]!['ca'] as double) + _montantVente(vente);
         days[key]!['ventes'] = (days[key]!['ventes'] as int) + 1;
         days[key]!['benefice'] =
             (days[key]!['benefice'] as double) + ((vente['benefice_reel'] as num?)?.toDouble() ?? 0.0);
