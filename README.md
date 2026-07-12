@@ -1,8 +1,8 @@
-# Giss Gestion 🇸🇳 - Plateforme B2B de Gestion de Stock et Crédits
+# Gis Gestion 🇸🇳 - Plateforme B2B de Gestion de Stock et Crédits
 
  **Lien de démonstration en ligne :** [ https://madinaaidara.github.io/gis_gestion/]( https://madinaaidara.github.io/gis_gestion/)
 
-**Giss Gestion** (*Giss* : voir/observer en wolof) est une application mobile et web conçue pour digitaliser et piloter les commerces de proximité au Sénégal. Elle permet aux boutiquiers de suivre leurs stocks (au kilo/pièce), d'enregistrer leurs ventes, de calculer leurs marges en temps réel et de remplacer le traditionnel "cahier de dette" par un registre de crédits numérique sécurisé.
+**Gis Gestion** (*Gis* : voir/observer en wolof) est une application mobile et web conçue pour digitaliser et piloter les commerces de proximité au Sénégal. Elle permet aux boutiquiers de suivre leurs stocks (au kilo/pièce), d'enregistrer leurs ventes, de calculer leurs marges en temps réel et de remplacer le traditionnel "cahier de dette" par un registre de crédits numérique sécurisé.
 
 
 ---
