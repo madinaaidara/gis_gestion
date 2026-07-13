@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/auth/oauth_helper.dart';
+import '../../../core/constants/supabase_constants.dart';
 import '../../../core/theme/gis_palette.dart';
 import '../../../core/theme/gis_theme_ext.dart';
 import '../../widgets/theme_toggle_button.dart';
@@ -84,6 +85,12 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!SupabaseConstants.isConfigured) {
+      _showErrorSnackBar(
+        'Service indisponible : configuration Supabase manquante. Contactez l\'administrateur.',
+      );
+      return;
+    }
     setState(() => _isLoading = true);
     HapticFeedback.lightImpact();
 
@@ -271,7 +278,14 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     final message = error.toString().toLowerCase();
     if (message.contains('invalid login credentials')) return 'Email ou mot de passe incorrect';
     if (message.contains('already registered') || message.contains('email_already_exists')) return 'Cet email est déjà utilisé';
-    if (message.contains('network') || message.contains('connection')) return 'Erreur réseau. Vérifiez votre connexion';
+    if (message.contains('network') || message.contains('connection') || message.contains('failed host lookup')) {
+      return 'Erreur réseau. Vérifiez votre connexion';
+    }
+    if (message.contains('invalid supabaseurl') ||
+        message.contains('invalid api key') ||
+        message.contains('invalid url')) {
+      return 'Configuration Supabase invalide. Réessayez plus tard.';
+    }
     if (message.contains('weak password')) return 'Mot de passe trop faible (6 caractères minimum)';
     if (message.contains('email not confirmed') || message.contains('not confirmed')) {
       return 'Confirmez votre email via le lien reçu, puis reconnectez-vous.';
