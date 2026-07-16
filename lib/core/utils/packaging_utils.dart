@@ -48,7 +48,8 @@ class PackagingUtils {
       final lotFactor = baseUnitsPerLot(p);
       final alreadyListed = options.any((o) => o.unite == lot);
       if (lotFactor > 1 && !alreadyListed) {
-        options.add(SaleUnitOption(unite: lot, label: lot, factorToBase: lotFactor));
+        options.add(
+            SaleUnitOption(unite: lot, label: lot, factorToBase: lotFactor));
       }
     }
 
@@ -56,15 +57,64 @@ class PackagingUtils {
     return options;
   }
 
-  static void _appendWeightVolumeAlternatives(String base, List<SaleUnitOption> options) {
-    if (base == 'kg' && !options.any((o) => o.unite == 'g')) {
-      options.add(const SaleUnitOption(unite: 'g', label: 'g', factorToBase: 0.001));
-    } else if (base == 'g' && !options.any((o) => o.unite == 'kg')) {
-      options.add(const SaleUnitOption(unite: 'kg', label: 'kg', factorToBase: 1000));
-    } else if (base == 'litre' && !options.any((o) => o.unite == 'ml')) {
-      options.add(const SaleUnitOption(unite: 'ml', label: 'ml', factorToBase: 0.001));
-    } else if (base == 'ml' && !options.any((o) => o.unite == 'litre')) {
-      options.add(const SaleUnitOption(unite: 'litre', label: 'litre', factorToBase: 1000));
+  static void _appendWeightVolumeAlternatives(
+      String base, List<SaleUnitOption> options) {
+    if (base == 'kg') {
+      _addOption(
+        options,
+        const SaleUnitOption(
+            unite: '250 g', label: '250 g', factorToBase: 0.25),
+      );
+      _addOption(
+        options,
+        const SaleUnitOption(unite: '500 g', label: '500 g', factorToBase: 0.5),
+      );
+    } else if (base == 'g') {
+      _addOption(
+        options,
+        const SaleUnitOption(unite: '250 g', label: '250 g', factorToBase: 250),
+      );
+      _addOption(
+        options,
+        const SaleUnitOption(unite: '500 g', label: '500 g', factorToBase: 500),
+      );
+      _addOption(
+        options,
+        const SaleUnitOption(unite: 'kg', label: '1 kg', factorToBase: 1000),
+      );
+    } else if (base == 'litre') {
+      _addOption(
+        options,
+        const SaleUnitOption(
+            unite: '250 ml', label: '250 ml', factorToBase: 0.25),
+      );
+      _addOption(
+        options,
+        const SaleUnitOption(
+            unite: '500 ml', label: '500 ml', factorToBase: 0.5),
+      );
+    } else if (base == 'ml') {
+      _addOption(
+        options,
+        const SaleUnitOption(
+            unite: '250 ml', label: '250 ml', factorToBase: 250),
+      );
+      _addOption(
+        options,
+        const SaleUnitOption(
+            unite: '500 ml', label: '500 ml', factorToBase: 500),
+      );
+      _addOption(
+        options,
+        const SaleUnitOption(
+            unite: 'litre', label: '1 litre', factorToBase: 1000),
+      );
+    }
+  }
+
+  static void _addOption(List<SaleUnitOption> options, SaleUnitOption option) {
+    if (!options.any((o) => o.unite == option.unite)) {
+      options.add(option);
     }
   }
 
@@ -107,9 +157,15 @@ class PackagingUtils {
 
   static String formatSalePrice(double price) {
     if (price <= 0) return '0';
-    if (price >= 1) return price.toStringAsFixed(0);
-    if (price >= 0.01) return price.toStringAsFixed(2);
-    return price.toStringAsFixed(4);
+    if ((price - price.roundToDouble()).abs() < 0.000001) {
+      return price.toStringAsFixed(0);
+    }
+
+    final decimals = price >= 0.01 ? 2 : 4;
+    var formatted = price.toStringAsFixed(decimals);
+    formatted =
+        formatted.replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+    return formatted;
   }
 
   static String formatFactorToBase(double factor, String baseUnite) {
